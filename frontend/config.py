@@ -8,6 +8,10 @@ load_dotenv()
 class Config:
     """Configuration class for the BudgiBot frontend"""
 
+    # Streamlit Page Config
+    PAGE_TITLE = "BudgiBot - Your Budgeting Assistant"
+    PAGE_ICON = "💰"
+
     # API Configuration
     API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000")
     API_TIMEOUT = int(os.getenv("API_TIMEOUT", "10"))

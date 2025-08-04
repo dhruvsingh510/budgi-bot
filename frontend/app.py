@@ -3,11 +3,12 @@ import requests
 import json
 from datetime import datetime
 import time
+from config import Config
 
 # Page configuration
 st.set_page_config(
-    page_title="BudgiBot - Your Budgeting Assistant",
-    page_icon="💰",
+    page_title=Config.PAGE_TITLE,
+    page_icon=Config.PAGE_ICON,
     layout="wide",
     initial_sidebar_state="collapsed",
 )
@@ -15,17 +16,6 @@ st.set_page_config(
 # Load external CSS
 with open("styles.css") as f:
     st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
-
-
-# Configuration
-class Config:
-    API_BASE_URL = "http://localhost:8000"  # Change this to your backend URL
-    ENDPOINTS = {
-        "chat": "/api/chat",
-        "budget": "/api/budget",
-        "transactions": "/api/transactions",
-        "analytics": "/api/analytics",
-    }
 
 
 # Sample responses for demo
