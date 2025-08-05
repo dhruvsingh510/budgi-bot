@@ -3,7 +3,6 @@ import json
 from typing import Dict, Any, Optional
 from config import Config
 
-
 class APIClient:
     """Client for making API calls to the BudgiBot backend"""
 
