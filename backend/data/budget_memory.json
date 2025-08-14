@@ -1,10 +1,56 @@
 {
   "profile": {
     "net_income": 6000.0,
-    "cost_of_living": "high",
-    "household_size": 1
+    "cost_of_living": "medium",
+    "household_size": 2
   },
-  "goals": [],
-  "plan": null,
-  "updated_at": "2025-08-13T19:36:40.931253"
+  "goals": [
+    {
+      "name": "save 100",
+      "target_amount": 100.0,
+      "months": 2,
+      "priority": 3
+    },
+    {
+      "name": "save for dog",
+      "target_amount": 50.0,
+      "months": 5,
+      "priority": 3
+    },
+    {
+      "name": "save for instrument",
+      "target_amount": 150.0,
+      "months": 3,
+      "priority": 3
+    },
+    {
+      "name": "dog food",
+      "target_amount": 55.0,
+      "months": 1,
+      "priority": 4
+    }
+  ],
+  "plan": {
+    "allocations": {
+      "Income": 0.0,
+      "Housing & Utilities": 1800.0,
+      "Food & Groceries": 720.0,
+      "Transportation": 540.0,
+      "Insurance": 300.0,
+      "Healthcare": 300.0,
+      "Debt & Loans": 300.0,
+      "Savings & Investments": 600.0,
+      "Entertainment & Leisure": 195.0,
+      "Shopping": 300.0,
+      "Education": 240.0,
+      "Personal Care": 180.0,
+      "Travel & Holidays": 180.0,
+      "Family & Childcare": 120.0,
+      "Miscellaneous": 60.0
+    },
+    "required_savings": 165.0,
+    "savings_shortfall": 0.0,
+    "income": 6000.0
+  },
+  "updated_at": "2025-08-14T19:24:39.793211+05:30"
 }
