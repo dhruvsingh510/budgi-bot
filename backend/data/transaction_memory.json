@@ -1,0 +1,28 @@
+{
+  "transactions": [
+    {
+      "datetime": "2025-08-14 21:43:16",
+      "amount": 12.0,
+      "category": "Food & Groceries",
+      "item_name": "fish",
+      "input": "add transaction for buying fish for 12",
+      "doc_id": "0ddb7ab2-99be-4b1e-b31b-823e6c91dd5a"
+    },
+    {
+      "datetime": "2025-08-14 21:45:04",
+      "amount": 123.0,
+      "category": "Food & Groceries",
+      "item_name": "milk",
+      "input": "add transaction bought milk for 123",
+      "doc_id": "24357096-7d1e-45c6-99fc-029e9399987d"
+    },
+    {
+      "datetime": "2025-08-14 21:45:16",
+      "amount": 12.0,
+      "category": "Shopping",
+      "item_name": "jeans",
+      "input": "add transaction bought jeans for 11",
+      "doc_id": "78aa4412-2bda-40c4-bd70-5a7afb9561af"
+    }
+  ]
+}
