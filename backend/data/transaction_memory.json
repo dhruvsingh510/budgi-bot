@@ -63,6 +63,14 @@
       "item_name": "furniture",
       "input": "bought 5000 worth of furniture",
       "doc_id": "2d9d1d04-1ee3-416b-95b4-c0fecd5e7220"
+    },
+    {
+      "datetime": "2025-08-15 17:41:09",
+      "amount": 1000.0,
+      "category": "Insurance",
+      "item_name": "health insurance",
+      "input": "add transaction of bought health insurance worth 1000",
+      "doc_id": "24d47733-49fd-4bdd-b2e3-aa8e79ac7366"
     }
   ]
 }
