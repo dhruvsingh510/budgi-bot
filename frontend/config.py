@@ -12,19 +12,16 @@ class Config:
     PAGE_TITLE = "BudgiBot - Your Budgeting Assistant"
     PAGE_ICON = "💰"
 
-    # API Configuration
-    API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000")
-    API_TIMEOUT = int(os.getenv("API_TIMEOUT", "10"))
+    # API Configuration - Force correct port
+    API_BASE_URL = "http://localhost:8080"  # Force port 8080 for backend
+    API_TIMEOUT = 30
 
-    # Endpoints
+    # Endpoints (matching the actual backend endpoints)
     ENDPOINTS = {
-        "chat": "/api/chat",
-        "budget": "/api/budget",
-        "transactions": "/api/transactions",
-        "analytics": "/api/analytics",
-        "health": "/api/health",
-        "user": "/api/user",
-        "goals": "/api/goals",
+        "chat": "/chat",
+        "health": "/health",
+        "root": "/",
+        "docs": "/docs",
     }
 
     # UI Configuration

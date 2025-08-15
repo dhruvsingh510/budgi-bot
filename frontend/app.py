@@ -4,6 +4,7 @@ import json
 from datetime import datetime
 import time
 from config import Config
+from api_client import APIClient
 
 # Page configuration
 st.set_page_config(
@@ -28,29 +29,51 @@ SAMPLE_RESPONSES = {
 }
 
 
-def call_api(endpoint, data=None):
-    """Make API call to backend"""
-    try:
-        url = f"{Config.API_BASE_URL}{Config.ENDPOINTS.get(endpoint, endpoint)}"
-        if data:
-            response = requests.post(url, json=data, timeout=10)
-        else:
-            response = requests.get(url, timeout=10)
-        return response.json() if response.status_code == 200 else None
-    except requests.exceptions.RequestException:
-        return None
+# Initialize API client
+@st.cache_resource
+def get_api_client():
+    """Get cached API client instance"""
+    return APIClient()
 
 
 def get_bot_response(user_message):
-    """Get response from bot (simulated for now)"""
+    """Get response from bot using real API"""
+    try:
+        api_client = get_api_client()
+
+        # Try to get response from real API
+        response = api_client.send_message(user_message)
+
+        if response and response.get("status") == "success":
+            bot_response = response.get("response", "I couldn't generate a response.")
+            service_used = response.get("service_used", "unknown")
+            confidence = response.get("confidence", 0.0)
+            reasoning = response.get("reasoning", "")
+
+            # Add metadata to session state for display
+            if "last_api_info" not in st.session_state:
+                st.session_state.last_api_info = {}
+
+            st.session_state.last_api_info = {
+                "service_used": service_used,
+                "confidence": confidence,
+                "reasoning": reasoning,
+            }
+
+            return bot_response
+        else:
+            # Fallback to demo mode if API fails
+            return get_demo_response(user_message)
+
+    except Exception as e:
+        st.error(f"API Error: {str(e)}")
+        return get_demo_response(user_message)
+
+
+def get_demo_response(user_message):
+    """Fallback demo responses when API is unavailable"""
     message_lower = user_message.lower()
 
-    # Simulate API call
-    # response = call_api("chat", {"message": user_message})
-    # if response:
-    #     return response.get("response", "I'm sorry, I couldn't process that request.")
-
-    # For demo purposes, use sample responses
     if any(word in message_lower for word in ["hello", "hi", "hey"]):
         return SAMPLE_RESPONSES["hello"]
     elif any(word in message_lower for word in ["budget", "budgeting"]):
@@ -86,16 +109,16 @@ def main():
     # Initialize session state
     if "messages" not in st.session_state:
         st.session_state.messages = []
-
-    if "user_input" not in st.session_state:
-        st.session_state.user_input = ""
+    
+    if "input_key" not in st.session_state:
+        st.session_state.input_key = 0
 
     # Header
     st.markdown(
         """
     <div class="main-header">
-        <h1>💰 BudgiBot</h1>
-        <p>Your friendly neighbourhood budgeting assistant</p>
+        <h1>🤖 Personal Finance Bot</h1>
+        <p>Intelligent AI assistant with automatic budget and transaction routing</p>
     </div>
     """,
         unsafe_allow_html=True,
@@ -125,8 +148,8 @@ def main():
     with col1:
         user_input = st.text_input(
             "Type your message here...",
-            key="user_input",
-            placeholder="Ask me about budgeting, expenses, or analytics...",
+            key=f"user_input_{st.session_state.input_key}",
+            placeholder="Ask naturally: 'Set my income to $5000' or 'Add coffee $5'...",
             label_visibility="collapsed",
         )
 
@@ -152,39 +175,36 @@ def main():
                 {"role": "assistant", "content": bot_response}
             )
 
-            # Clear input
-            st.session_state.user_input = ""
+            # Clear input by incrementing the key (creates new widget)
+            st.session_state.input_key += 1
             st.rerun()
 
     # Sidebar with quick actions
     with st.sidebar:
         st.markdown("### Quick Actions")
 
-        if st.button("📊 View Analytics", use_container_width=True):
-            st.session_state.messages.append(
-                {"role": "user", "content": "Show me my analytics"}
-            )
-            bot_response = get_bot_response("analytics")
-            st.session_state.messages.append(
-                {"role": "assistant", "content": bot_response}
-            )
-            st.rerun()
-
-        if st.button("💰 Set Budget", use_container_width=True):
-            st.session_state.messages.append(
-                {"role": "user", "content": "Help me set a budget"}
-            )
-            bot_response = get_bot_response("budget")
+        if st.button("📊 Show Transactions", use_container_width=True):
+            user_message = "Show recent transactions"
+            st.session_state.messages.append({"role": "user", "content": user_message})
+            bot_response = get_bot_response(user_message)
             st.session_state.messages.append(
                 {"role": "assistant", "content": bot_response}
             )
             st.rerun()
 
-        if st.button("💳 Add Expense", use_container_width=True):
+        if st.button("💰 Show Budget Plan", use_container_width=True):
+            user_message = "Show my budget plan"
+            st.session_state.messages.append({"role": "user", "content": user_message})
+            bot_response = get_bot_response(user_message)
             st.session_state.messages.append(
-                {"role": "user", "content": "I want to add an expense"}
+                {"role": "assistant", "content": bot_response}
             )
-            bot_response = get_bot_response("expenses")
+            st.rerun()
+
+        if st.button("💳 Add Transaction", use_container_width=True):
+            user_message = "How do I add a transaction?"
+            st.session_state.messages.append({"role": "user", "content": user_message})
+            bot_response = get_bot_response(user_message)
             st.session_state.messages.append(
                 {"role": "assistant", "content": bot_response}
             )
@@ -194,13 +214,32 @@ def main():
         st.markdown("### API Status")
 
         # Check API connectivity
-        api_status = "🟢 Connected" if call_api("health") else "🔴 Disconnected"
+        api_client = get_api_client()
+        is_healthy = api_client.check_health()
+        api_status = "🟢 Connected" if is_healthy else "🔴 Disconnected"
         st.markdown(f"**Backend:** {api_status}")
+
+        if is_healthy:
+            # Show API info
+            api_info = api_client.get_api_info()
+            if api_info:
+                st.markdown(f"**Version:** {api_info.get('version', 'Unknown')}")
+
+        # Show last AI routing info
+        if "last_api_info" in st.session_state and st.session_state.last_api_info:
+            info = st.session_state.last_api_info
+            st.markdown("---")
+            st.markdown("### Last AI Routing")
+            st.markdown(f"**Service:** {info.get('service_used', 'unknown').title()}")
+            st.markdown(f"**Confidence:** {info.get('confidence', 0):.2f}")
+            with st.expander("Reasoning"):
+                st.markdown(info.get("reasoning", "No reasoning available"))
 
         st.markdown("---")
         st.markdown("### Available Endpoints")
         for name, endpoint in Config.ENDPOINTS.items():
-            st.markdown(f"• `{name}`: `{endpoint}`")
+            status_emoji = "🟢" if is_healthy else "🔴"
+            st.markdown(f"• {status_emoji} `{name}`: `{endpoint}`")
 
 
 if __name__ == "__main__":
