@@ -23,6 +23,22 @@
       "item_name": "jeans",
       "input": "add transaction bought jeans for 11",
       "doc_id": "78aa4412-2bda-40c4-bd70-5a7afb9561af"
+    },
+    {
+      "datetime": "2025-08-15 14:19:02",
+      "amount": 15.0,
+      "category": "Food & Groceries",
+      "item_name": "cheese",
+      "input": "add a transaction bought cheese for 15 usd",
+      "doc_id": "f07a9644-8173-4cf0-9850-365ef50ec292"
+    },
+    {
+      "datetime": "2025-08-15 14:28:09",
+      "amount": 12.0,
+      "category": "Food & Groceries",
+      "item_name": "coffee",
+      "input": "add transaction bought coffee for 12",
+      "doc_id": "a32126c5-bc29-4e3b-8669-17b0bbe089fc"
     }
   ]
 }

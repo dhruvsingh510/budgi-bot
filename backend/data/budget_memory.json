@@ -1,6 +1,44 @@
 {
-  "profile": null,
-  "goals": [],
-  "plan": null,
-  "updated_at": "2025-08-15T00:16:08.082447+05:30"
+  "profile": {
+    "net_income": 100000.0,
+    "cost_of_living": "low",
+    "household_size": 1
+  },
+  "goals": [
+    {
+      "name": "watching movies",
+      "target_amount": 101.0,
+      "months": 12,
+      "priority": 3
+    },
+    {
+      "name": "adopting a dog",
+      "target_amount": 1000.0,
+      "months": 9,
+      "priority": 3
+    }
+  ],
+  "plan": {
+    "allocations": {
+      "Income": 0.0,
+      "Housing & Utilities": 25000.0,
+      "Food & Groceries": 12000.0,
+      "Transportation": 7000.000000000001,
+      "Insurance": 5000.0,
+      "Healthcare": 4000.0,
+      "Debt & Loans": 6000.0,
+      "Savings & Investments": 12000.0,
+      "Entertainment & Leisure": 5880.472222222223,
+      "Shopping": 6000.0,
+      "Education": 4000.0,
+      "Personal Care": 4000.0,
+      "Travel & Holidays": 4000.0,
+      "Family & Childcare": 4000.0,
+      "Miscellaneous": 1000.0
+    },
+    "required_savings": 119.52777777777779,
+    "savings_shortfall": 0.0,
+    "income": 100000.0
+  },
+  "updated_at": "2025-08-15T14:00:23.294299+05:30"
 }
