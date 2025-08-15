@@ -6,3 +6,7 @@ ipywidgets==8.1.6
 faiss-cpu==1.10.0
 langchain_groq==0.3.2
 langgraph==0.2.72
+# FastAPI dependencies for the Personal Finance Bot API
+fastapi>=0.104.1
+uvicorn[standard]>=0.24.0
+pydantic>=2.5.0

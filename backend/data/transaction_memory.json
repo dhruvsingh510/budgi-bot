@@ -47,6 +47,22 @@
       "item_name": "car",
       "input": "create a transaction bought a car for 1000",
       "doc_id": "0cfa7e65-04a7-4d90-b8d0-1bccb854aec2"
+    },
+    {
+      "datetime": "2025-08-15 16:42:14",
+      "amount": 5000.0,
+      "category": "Shopping",
+      "item_name": "trousers",
+      "input": "bought trousers for 5000",
+      "doc_id": "0e5e1cec-1577-4659-9ceb-e2fd4e3e8e67"
+    },
+    {
+      "datetime": "2025-08-15 17:10:46",
+      "amount": 5000.0,
+      "category": "Housing & Utilities",
+      "item_name": "furniture",
+      "input": "bought 5000 worth of furniture",
+      "doc_id": "2d9d1d04-1ee3-416b-95b4-c0fecd5e7220"
     }
   ]
 }

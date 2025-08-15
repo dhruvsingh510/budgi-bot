@@ -220,6 +220,9 @@ class BudgetBot:
         # Execute the routing workflow
         final_state = self.compiled_routing_graph.invoke(initial_state)
 
+        # Store the routing state for API access
+        self.last_routing_state = dict(final_state)
+
         return final_state.get("response", "Sorry, I couldn't process your request.")
 
 
