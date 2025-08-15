@@ -39,6 +39,14 @@
       "item_name": "coffee",
       "input": "add transaction bought coffee for 12",
       "doc_id": "a32126c5-bc29-4e3b-8669-17b0bbe089fc"
+    },
+    {
+      "datetime": "2025-08-15 16:35:24",
+      "amount": 1000.0,
+      "category": "Transportation",
+      "item_name": "car",
+      "input": "create a transaction bought a car for 1000",
+      "doc_id": "0cfa7e65-04a7-4d90-b8d0-1bccb854aec2"
     }
   ]
 }
