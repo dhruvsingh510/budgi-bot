@@ -16,8 +16,14 @@
       "target_amount": 1000.0,
       "months": 9,
       "priority": 3
+    },
+    {
+      "name": "standing table",
+      "target_amount": 12345.0,
+      "months": 12,
+      "priority": 2
     }
   ],
   "plan": null,
-  "updated_at": "2025-08-15T16:42:57.778245+05:30"
+  "updated_at": "2025-08-15T21:10:04.036779+05:30"
 }

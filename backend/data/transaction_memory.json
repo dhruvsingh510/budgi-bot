@@ -71,6 +71,14 @@
       "item_name": "health insurance",
       "input": "add transaction of bought health insurance worth 1000",
       "doc_id": "24d47733-49fd-4bdd-b2e3-aa8e79ac7366"
+    },
+    {
+      "datetime": "2025-08-15 21:05:58",
+      "amount": 10000.0,
+      "category": "Transportation",
+      "item_name": "car",
+      "input": "add transaction bought a car for 10000",
+      "doc_id": "5e98bd50-4b62-4fe3-9779-23ed4df7ec2b"
     }
   ]
 }

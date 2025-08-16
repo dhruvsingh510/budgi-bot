@@ -39,7 +39,7 @@ class APIClient:
                 return response.json()
             else:
                 # Only show errors in console, not in UI
-                print(f"API Error: {response.status_code} - {response}")
+                print(f"API Error: {url} - {method.upper()} - {response.status_code} - {response.text}")
                 return None
 
         except requests.exceptions.RequestException as e:

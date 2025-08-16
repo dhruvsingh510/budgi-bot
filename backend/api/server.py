@@ -103,7 +103,7 @@ async def startup_event():
         print("🤖 Bot is ready to handle requests")
 
 
-@app.get("/", response_model=Dict[str, str])
+@app.get("/", response_model=Dict[str, Any])
 async def root():
     """Root endpoint with API information."""
     return {
