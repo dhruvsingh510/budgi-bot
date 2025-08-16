@@ -1,0 +1,17 @@
+# Personal Finance Bot - Git Ignore File
+
+# Environment Variables
+*.env
+
+# Data Directory
+backend/data/
+
+
+# Python
+__pycache__
+
+# IDE & Editor Files
+.DS_Store
+
+# Jupyter Notebook
+.ipynb_checkpoints

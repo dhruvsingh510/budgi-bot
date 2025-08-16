@@ -18,7 +18,7 @@ class ServiceRoute(BaseModel):
     """Pydantic model for service routing decision."""
 
     service: str = Field(
-        description="The service to route to: 'budget' or 'transaction'"
+        description="The service to route to: 'budget' or 'transaction' 'general'"
     )
     confidence: float = Field(description="Confidence score between 0 and 1")
     reasoning: str = Field(description="Brief explanation for the routing decision")
@@ -78,18 +78,13 @@ class BudgetBot:
             os.path.join(Path(__file__).parent, "..", "data", "transaction_memory.json")
         )
 
-    def _get_system_prompt(self) -> str:
-        """Get the system prompt for intelligent routing."""
-        return """
-          You are an intelligent routing assistant for a personal finance bot. You need to determine whether a user's request should be handled by the BUDGET service or the TRANSACTION service.
-
-          **BUDGET SERVICE capabilities:**
+    BOT_CAPABILITIES = """
+      **BUDGET SERVICE capabilities:**
           - Set user profile (income, cost of living, household size)
           - Add/remove financial goals (savings targets, timelines, priorities)
           - Generate budget plans based on profile and goals
           - Adjust category allocations in budget plans
           - Show current budget plan, goals, and profile
-          - Budget categories: Income, Housing & Utilities, Food & Groceries, Transportation, Insurance, Healthcare, Debt & Loans, Savings & Investments, Entertainment & Leisure, Shopping, Education, Personal Care, Travel & Holidays, Family & Childcare, Miscellaneous
 
           **TRANSACTION SERVICE capabilities:**
           - Add new transactions (with amount, category, item name)
@@ -98,7 +93,34 @@ class BudgetBot:
           - Search transactions by category
           - View recent/similar transactions
           - Get all transactions grouped by category
+
+          Transaction categories: Same as budget categories
+    """
+
+    BOT_EXAMPLES = """
+      Examples:
+          - "Set my income to $5000" → BUDGET
+          - "Add goal to save $10000" → BUDGET  
+          - "Show my budget plan" → BUDGET
+          - "Add coffee $5" → TRANSACTION
+          - "Show recent transactions" → TRANSACTION
+          - "Edit my grocery purchase" → TRANSACTION
+    """
+
+    def _get_system_prompt(self) -> str:
+        """Get the system prompt for intelligent routing."""
+        return """
+          You are an intelligent routing assistant for a personal finance bot. You need to determine whether a user's request should be handled by the BUDGET service, the TRANSACTION service, or the GENERAL response,.
+
+          {BOT_CAPABILITIES}
+          - Budget categories: Income, Housing & Utilities, Food & Groceries, Transportation, Insurance, Healthcare, Debt & Loans, Savings & Investments, Entertainment & Leisure, Shopping, Education, Personal Care, Travel & Holidays, Family & Childcare, Miscellaneous
           - Transaction categories: Same as budget categories
+
+          **GENERAL response** - For greetings, introductions, and capability inquiries:
+          - Basic greetings: "Hi", "Hello", "Hey", "Good morning"
+          - Capability questions: "What can you do?", "What are your features?", "How do you work?"
+          - Help requests: "Help me", "How do I get started?", "What should I do?"
+          - Bot information: "Who are you?", "What are you?", "Tell me about yourself"
 
           **ROUTING GUIDELINES:**
           - Route to BUDGET for: profile setup, goal setting, budget planning, allocation adjustments, showing plans/goals/profiles
@@ -106,15 +128,17 @@ class BudgetBot:
           - Keywords for BUDGET: "profile", "income", "goal", "plan", "budget", "allocate", "save", "target"
           - Keywords for TRANSACTION: "add", "buy", "bought", "spent", "purchase", "transaction", "history", "show recent", "edit", "delete"
 
-          Examples:
-          - "Set my income to $5000" → BUDGET
-          - "Add goal to save $10000" → BUDGET  
-          - "Show my budget plan" → BUDGET
-          - "Add coffee $5" → TRANSACTION
-          - "Show recent transactions" → TRANSACTION
-          - "Edit my grocery purchase" → TRANSACTION
+          Use General response for the following prompts:
+          - "Hi" → GENERAL (greeting)
+          - "What can you do?" → GENERAL (capability inquiry)  
+          - "How does this work?" → GENERAL (help request)
+          - "Help me get started" → GENERAL (general help)
+
+          {BOT_EXAMPLES}
 
           Analyze the user input and determine the most appropriate service.
+
+          For simple inputs like "Hi" or "What can you do?", introduce yourself as BudgiBot, tell about your capabilities, and ask how you can help.
         """
 
     def _setup_routing_workflow(self):
@@ -132,7 +156,7 @@ class BudgetBot:
 
                   Analyze this input and determine which service should handle it. Respond with valid JSON only:
                   {{
-                    "service": "budget" or "transaction",
+                    "service": "general" or "budget" or "transaction",
                     "confidence": 0.0 to 1.0,
                     "reasoning": "brief explanation for the choice"
                   }}
@@ -167,6 +191,55 @@ class BudgetBot:
 
             return state
 
+        def general_node(state: OrchestratorState) -> OrchestratorState:
+            """Handle general greetings and capability inquiries with LLM."""
+            print("🤖 Processing with General handler...")
+
+            user_input = state["user_input"].lower()
+
+            # Use LLM to generate contextual response for general queries
+            general_prompt = f"""
+              You are a helpful Personal Finance Bot. The user has sent a general greeting or capability inquiry: "{state['user_input']}"
+
+              Respond in a friendly, helpful way. If it's a greeting, welcome them warmly. If they're asking about capabilities, explain what you can do clearly.
+
+              Keep your response concise but informative. Include relevant examples of what they can ask you.
+
+              Your capabilities:
+              - Budget planning and goal setting
+              - Expense tracking and transaction management  
+              - Financial insights and recommendations
+              - Natural language interaction
+
+              Generate a helpful response:
+              Avoid giving examples of what they can ask you.
+              Avoid giving the same response repeatedly.
+
+              Respond with a proper explanation on the bot's capbilities categorised by each bot:
+              {self.BOT_CAPABILITIES}
+              Make sure that each bot has it's own bullet point and it's capabilities are given as points nested in the bullet point.
+              """
+
+            try:
+                response = self.llm.invoke([HumanMessage(content=general_prompt)])
+                state["response"] = response.content
+                print(general_prompt)
+            except Exception as e:
+                print(f"❌ Error in general handler: {e}")
+                # Fallback response
+                state[
+                    "response"
+                ] = """
+                  👋 Hello! I'm your Personal Finance Bot. I can help you with budget planning and expense tracking. 
+
+                  💰 Try: "Set my income to $5000" or "Add coffee $5"
+                  ❓ Ask: "What can you do?" for more details
+
+                  How can I help with your finances today?
+                """
+
+            return state
+
         def budget_node(state: OrchestratorState) -> OrchestratorState:
             """Process request using budget service."""
             print("💰 Processing with Budget service...")
@@ -186,20 +259,24 @@ class BudgetBot:
             service = state.get("service_route", "budget")
             if service == "transaction":
                 return "transaction"
-            else:
+            elif service == "budget":
                 return "budget"
+            else:
+                return "general"
 
         # Build the routing workflow
         self.routing_graph = StateGraph(OrchestratorState)
         self.routing_graph.add_node("route", route_node)
         self.routing_graph.add_node("budget", budget_node)
         self.routing_graph.add_node("transaction", transaction_node)
+        self.routing_graph.add_node("general", general_node)
 
         # Add edges
         self.routing_graph.set_entry_point("route")
         self.routing_graph.add_conditional_edges("route", decide_service)
         self.routing_graph.add_edge("budget", END)
         self.routing_graph.add_edge("transaction", END)
+        self.routing_graph.add_edge("general", END)
 
         # Compile the graph
         self.compiled_routing_graph = self.routing_graph.compile()

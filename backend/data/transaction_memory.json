@@ -79,6 +79,38 @@
       "item_name": "car",
       "input": "add transaction bought a car for 10000",
       "doc_id": "5e98bd50-4b62-4fe3-9779-23ed4df7ec2b"
+    },
+    {
+      "datetime": "2025-08-16 11:47:41",
+      "amount": null,
+      "category": "Miscellaneous",
+      "item_name": "cat",
+      "input": "bought a cat",
+      "doc_id": "9cc2557c-7a31-4197-93b0-e799e3b0125f"
+    },
+    {
+      "datetime": "2025-08-16 19:25:03",
+      "amount": 2000.0,
+      "category": "Miscellaneous",
+      "item_name": "jetpack",
+      "input": "bought a jetpack for 2000",
+      "doc_id": "2e2440fc-4771-4c4b-a6d6-3840deb30ac6"
+    },
+    {
+      "datetime": "2025-08-16 21:30:46",
+      "amount": 12.0,
+      "category": "Food & Groceries",
+      "item_name": "cat food",
+      "input": "add a transaction bought cat food for 12",
+      "doc_id": "bea69db5-d6d7-4e9a-b8e6-a4cd60e062d4"
+    },
+    {
+      "datetime": "2025-08-16 21:31:38",
+      "amount": 10.0,
+      "category": "Food & Groceries",
+      "item_name": "eggs",
+      "input": "add a transaction bought eggs for 10",
+      "doc_id": "b9800f18-a050-49eb-87cf-29a8a156b167"
     }
   ]
 }
