@@ -202,7 +202,8 @@ budget_guideline_texts = [
 
 if os.path.exists(BUDGET_FAISS_PATH):
     shutil.rmtree(BUDGET_FAISS_PATH)
-    print("🔴 Budget FAISS stores deleted")
+    os.remove("../data/budget_memory.json")
+    print("🔴 Budget FAISS stores and json file deleted")
 else:
     print("ℹ️  Budget FAISS stores directory doesn't exist, nothing to delete")
 
@@ -245,6 +246,7 @@ print(f"Guidelines Budget FAISS size on disk: {size_mb:.2f} MB")
 
 if os.path.exists(TRANSACTION_FAISS_PATH):
     shutil.rmtree(TRANSACTION_FAISS_PATH)
+    os.remove("../data/transaction_memory.json")
     print("🔴 Transaction FAISS stores deleted")
 else:
     print("ℹ️  Transaction FAISS stores directory doesn't exist, nothing to delete")
