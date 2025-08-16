@@ -1,0 +1,9 @@
+# API Configuration
+API_BASE_URL=http://localhost:8080
+API_TIMEOUT=10
+
+# Demo Mode
+ENABLE_DEMO_MODE=true
+
+# UI Configuration
+TYPING_DELAY=1.0
