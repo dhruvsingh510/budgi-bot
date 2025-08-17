@@ -5,7 +5,7 @@ from transaction_service import TransactionService
 import os
 from pathlib import Path
 from typing import Dict, Any, Tuple
-
+from logger_config import get_service_logger
 from langgraph.graph import StateGraph, START, END
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 from langchain_core.prompts import PromptTemplate
@@ -38,7 +38,8 @@ class BudgetBot:
     """Main application orchestrator with clean dependency injection."""
 
     def __init__(self):
-        print("🚀 Initializing Intelligent Budget Bot with LangGraph routing...")
+        self.logger = get_service_logger("orchestrator")
+        self.logger.info("Initializing Intelligent Budget Bot with LangGraph routing")
 
         # Initialize LLM for routing
         self.llm = resource_manager.llm
@@ -63,8 +64,8 @@ class BudgetBot:
 
         # Setup intelligent routing workflow
         self._setup_routing_workflow()
+        self.logger.info("Intelligent Budget Bot with auto-routing initialized successfully")
 
-        print("✅ Intelligent Budget Bot with auto-routing initialized successfully!")
 
     def _get_budget_memory_path(self) -> str:
         """Get path to budget memory file."""
@@ -146,7 +147,7 @@ class BudgetBot:
 
         def route_node(state: OrchestratorState) -> OrchestratorState:
             """Determine which service to route to based on user input."""
-            print("🧠 Analyzing user request...")
+            self.logger.info("Analyzing user request for routing")
 
             prompt_template = PromptTemplate.from_template(
                 """
@@ -177,13 +178,10 @@ class BudgetBot:
                 state["confidence"] = parsed.confidence
                 state["reasoning"] = parsed.reasoning
 
-                print(
-                    f"🎯 Routing to {parsed.service.upper()} service (confidence: {parsed.confidence:.2f})"
-                )
-                print(f"💭 Reasoning: {parsed.reasoning}")
+                self.logger.info(f"Routing decision: {parsed.service} (confidence: {parsed.confidence:.2f}) - {parsed.reasoning}")
 
             except Exception as e:
-                print(f"❌ Routing error: {e}")
+                self.logger.error(f"Routing error: {str(e)}", exc_info=True)
                 # Fallback: route to budget by default
                 state["service_route"] = "budget"
                 state["confidence"] = 0.5
@@ -193,7 +191,7 @@ class BudgetBot:
 
         def general_node(state: OrchestratorState) -> OrchestratorState:
             """Handle general greetings and capability inquiries with LLM."""
-            print("🤖 Processing with General handler...")
+            self.logger.info("🤖 Processing with General handler...")
 
             user_input = state["user_input"].lower()
 
@@ -223,9 +221,8 @@ class BudgetBot:
             try:
                 response = self.llm.invoke([HumanMessage(content=general_prompt)])
                 state["response"] = response.content
-                print(general_prompt)
             except Exception as e:
-                print(f"❌ Error in general handler: {e}")
+                self.logger.error(f"❌ Error in general handler: {e}\nResponding with generic message")
                 # Fallback response
                 state[
                     "response"
@@ -242,14 +239,14 @@ class BudgetBot:
 
         def budget_node(state: OrchestratorState) -> OrchestratorState:
             """Process request using budget service."""
-            print("💰 Processing with Budget service...")
+            self.logger.info("💰 Processing with Budget service...")
             response, _ = self.budget_service.process_request(state["user_input"])
             state["response"] = response
             return state
 
         def transaction_node(state: OrchestratorState) -> OrchestratorState:
             """Process request using transaction service."""
-            print("💳 Processing with Transaction service...")
+            self.logger.info("💳 Processing with Transaction service...")
             response, _ = self.transaction_service.process_request(state["user_input"])
             state["response"] = response
             return state
@@ -283,7 +280,7 @@ class BudgetBot:
 
     def process_request(self, user_input: str) -> str:
         """Intelligently route request to appropriate service using LangGraph."""
-        print(f"🔍 Processing: '{user_input}'")
+        self.logger.info(f"Processing user request: '{user_input}'")
 
         # Create initial state
         initial_state = OrchestratorState(
@@ -294,13 +291,25 @@ class BudgetBot:
             reasoning="",
         )
 
-        # Execute the routing workflow
-        final_state = self.compiled_routing_graph.invoke(initial_state)
+        try:
+          # Execute the routing workflow
+          final_state = self.compiled_routing_graph.invoke(initial_state)
 
-        # Store the routing state for API access
-        self.last_routing_state = dict(final_state)
-
-        return final_state.get("response", "Sorry, I couldn't process your request.")
+          # Log routing decision
+          service_used = final_state.get("service_route", "unknown")
+          confidence = final_state.get("confidence", 0.0)
+          reasoning = final_state.get("reasoning", "")
+          
+          self.logger.info(f"Routed to {service_used} service (confidence: {confidence:.2f}) - {reasoning}")
+          
+          response = final_state.get("response", "Sorry, I couldn't process your request.")
+          
+          self.logger.info(f"Generated response length: {len(response)} characters")
+          
+          return response
+        except Exception as e:
+          self.logger.error(f"Error processing request '{user_input}': {str(e)}", exc_info=True)
+          return "Sorry, there was an error processing your request."
 
 
 def main():

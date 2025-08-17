@@ -6,7 +6,7 @@ from typing import Optional, List, Dict, Any, Tuple
 from datetime import datetime, timezone, timedelta
 from uuid import uuid4
 from difflib import SequenceMatcher
-
+from logger_config import get_service_logger
 from langgraph.graph import StateGraph, END
 from langchain.docstore.document import Document
 from langchain_core.messages import HumanMessage
@@ -86,6 +86,8 @@ class TransactionService:
 
         # Initialize the LangGraph workflow
         self._setup_workflow()
+        self.logger = get_service_logger("transaction")
+        self.logger.info("Transaction service initialized")
 
     def _load_transactions(self) -> List[Dict]:
         """Load transactions from persistent storage."""
@@ -146,7 +148,7 @@ class TransactionService:
 
         return {
             "status": "success",
-            "message": f"Added transaction: {item_name or 'Transaction'} for {amount or 'unspecified amount'}",
+            "message": f"Added transaction: {item_name or 'Transaction'} for {amount or 'unspecified amount'} in {category} category",
             "transaction": transaction,
         }
 
@@ -378,7 +380,7 @@ class TransactionService:
         """Setup the LangGraph workflow for transaction processing."""
 
         def llm_parse_node(state: TransactionState) -> TransactionState:
-            print("➡️ Running llm_parse_node")
+            self.logger.info("➡️ Running llm_parse_node")
             state.parse_attempts += 1
 
             # Fetch similar examples if vector store is available
@@ -441,7 +443,7 @@ class TransactionService:
                 state.item_name = parsed.item_name
 
             except Exception as e:
-                print(f"❌ Parse error: {e}")
+                self.logger.error(f"❌ Parse error: {e}")
                 state.action = "add"  # Default fallback
 
             return state
@@ -483,7 +485,7 @@ class TransactionService:
             return state
 
         def decide_next(state: TransactionState):
-            print("🔄 Deciding next step...")
+            self.logger.info("🔄 Deciding next step...")
 
             action = state.action
 
@@ -681,7 +683,7 @@ class TransactionService:
 
     def process_request(self, user_input: str) -> Tuple[str, Any]:
         """Process user request and return response."""
-        print(f"🔍 User Input: {user_input}\n")
+        self.logger.info(f"🔍 User Input: {user_input}\n")
 
         # Handle follow-up interactions
         if self.pending_add_context:

@@ -5,7 +5,7 @@ import json
 from dataclasses import dataclass
 from typing import Optional, List, Dict, Any, Tuple
 from datetime import datetime, timezone, timedelta
-
+from logger_config import get_service_logger
 from langgraph.graph import StateGraph, START, END
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 from langchain_core.tools import tool
@@ -141,6 +141,8 @@ class BudgetService:
 
         # Initialize the LangGraph workflow
         self._setup_workflow()
+        self.logger = get_service_logger("budget")
+        self.logger.info("Budget service initialized")
 
     def _load_memory(self) -> Dict[str, Any]:
         """Load budget context from persistent storage."""
@@ -171,7 +173,7 @@ class BudgetService:
             with open(self.memory_path, "w") as f:
                 json.dump(serializable, f, indent=2)
         except Exception as e:
-            print(f"Warning: failed saving memory: {e}")
+            self.logger.error(f"Warning: failed saving memory: {e}")
 
     # Budget calculation logic
     @staticmethod
