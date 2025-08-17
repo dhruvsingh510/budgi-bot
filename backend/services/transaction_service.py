@@ -40,7 +40,7 @@ class TransactionParse(BaseModel):
 
 
 class TransactionService:
-    """Clean transaction service with dependency injection."""
+    """Transaction service with dependency injection."""
 
     # Constants
     CATEGORIES = [

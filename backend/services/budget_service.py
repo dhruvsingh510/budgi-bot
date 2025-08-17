@@ -33,7 +33,7 @@ class FinancialGoal:
 
 
 class BudgetService:
-    """Clean budget service with dependency injection."""
+    """Budget service with dependency injection."""
 
     # Constants
     CATEGORIES = [

@@ -35,7 +35,7 @@ class OrchestratorState(TypedDict):
 
 
 class BudgetBot:
-    """Main application orchestrator with clean dependency injection."""
+    """Main application orchestrator with dependency injection."""
 
     def __init__(self):
         self.logger = get_service_logger("orchestrator")
@@ -65,7 +65,7 @@ class BudgetBot:
         # Setup intelligent routing workflow
         self._setup_routing_workflow()
         self.logger.info(
-            "Intelligent Budget Bot with auto-routing initialized successfully"
+            "BudgiBot initialized successfully"
         )
 
     def _get_budget_memory_path(self) -> str:

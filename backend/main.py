@@ -5,11 +5,6 @@ Main entry point for the Intelligent Personal Finance Bot.
 This script can run either:
 1. API Server mode (default): Exposes HTTP API on port 8080
 2. Console mode: Interactive command-line interface
-
-Usage:
-    python main.py              # Run API server
-    python main.py --console    # Run console interface
-    python main.py --help       # Show help
 """
 
 import argparse
