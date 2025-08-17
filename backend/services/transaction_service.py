@@ -12,6 +12,7 @@ from langchain.docstore.document import Document
 from langchain_core.messages import HumanMessage
 from langchain_core.prompts import PromptTemplate
 from langchain_core.output_parsers import PydanticOutputParser
+from transaction_formatter import TransactionFormatter
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.embeddings import HuggingFaceEmbeddings
 from langchain.vectorstores import FAISS
@@ -124,7 +125,7 @@ class TransactionService:
         transaction = {
             "datetime": datetime.now(self.IST).strftime("%Y-%m-%d %H:%M:%S"),
             "amount": amount,
-            "category": category,
+            "category": category or "Miscellaneous",
             "item_name": item_name,
             "input": input_text,
             "doc_id": doc_id,
@@ -148,7 +149,7 @@ class TransactionService:
 
         return {
             "status": "success",
-            "message": f"Added transaction: {item_name or 'Transaction'} for {amount or 'unspecified amount'} in {category} category",
+            "message": f"Added transaction: {item_name or 'Transaction'} for {TransactionFormatter.format_amount(amount)} in {category or 'Miscellaneous'} category",
             "transaction": transaction,
         }
 
@@ -535,45 +536,8 @@ class TransactionService:
         # Compile the graph
         self.compiled_graph = self.transaction_graph.compile()
 
-    def _format_transaction(self, transaction: Dict) -> str:
-        """Format a single transaction for display."""
-        date = transaction.get("datetime", "Unknown date")
-        amount = transaction.get("amount")
-        category = transaction.get("category", "Uncategorized")
-        item_name = transaction.get("item_name", "Unknown item")
-
-        # Format amount
-        amount_str = f"${amount:.2f}" if amount is not None else "No amount"
-
-        # Format date (just the date part, not time)
-        if date != "Unknown date":
-            try:
-                date_part = date.split(" ")[0]  # Get just the date part
-            except:
-                date_part = date
-        else:
-            date_part = date
-
-        return f"  • {item_name} - {amount_str} ({category}) - {date_part}"
-
-    def _format_transactions_list(self, transactions: List[Dict]) -> str:
-        """Format a list of transactions for display."""
-        if not transactions:
-            return "No transactions to display."
-
-        # Sort by date (most recent first)
-        sorted_transactions = sorted(
-            transactions, key=lambda x: x.get("datetime", ""), reverse=True
-        )
-
-        lines = []
-        for transaction in sorted_transactions:
-            lines.append(self._format_transaction(transaction))
-
-        return "\n".join(lines)
-
     def _format_natural_language_response(self, final_state: Dict, result: Any) -> str:
-        """Format the result into a natural language response."""
+        """Format the result into a clean, frontend-friendly response."""
         action = final_state.get("action")
         category = final_state.get("category")
         amount = final_state.get("amount")
@@ -607,63 +571,19 @@ class TransactionService:
 
         elif action == "search_by_category":
             transactions = result.get("transactions", []) if result else []
-            if transactions:
-                header = f"📋 Found {len(transactions)} transactions in {category} category:\n"
-                transaction_list = self._format_transactions_list(transactions)
-                return header + transaction_list
-            else:
-                return f"No transactions found in {category} category"
+            return TransactionFormatter.format_search_results(
+                transactions, "category", category
+            )
 
         elif action == "get_recent":
             transactions = result.get("transactions", []) if result else []
-            if transactions:
-                header = f"📋 Found {len(transactions)} similar recent transactions:\n"
-                transaction_list = self._format_transactions_list(transactions)
-                return header + transaction_list
-            else:
-                return "No similar transactions found"
+            return TransactionFormatter.format_search_results(transactions, "recent")
 
         elif action == "get_all_by_category":
             if result:
-                lines = ["📊 All Transactions by Category:\n"]
-                total_transactions = 0
-
-                # Sort categories by transaction count (descending)
-                sorted_categories = sorted(
-                    result.items(), key=lambda x: x[1].get("count", 0), reverse=True
-                )
-
-                for category_name, category_data in sorted_categories:
-                    count = category_data.get("count", 0)
-                    total = category_data.get("total", 0)
-                    transactions = category_data.get("transactions", [])
-                    total_transactions += count
-
-                    lines.append(
-                        f"💰 {category_name}: {count} transactions, Total: ${total:.2f}"
-                    )
-
-                    # Show all transactions for each category
-                    if transactions:
-                        all_transactions = sorted(
-                            transactions,
-                            key=lambda x: x.get("datetime", ""),
-                            reverse=True,
-                        )
-
-                        for transaction in all_transactions:
-                            lines.append(
-                                f"    {self._format_transaction(transaction).strip()}"
-                            )
-
-                    lines.append("")  # Empty line between categories
-
-                lines.append(
-                    f"📈 Total: {total_transactions} transactions across {len(result)} categories"
-                )
-                return "\n".join(lines)
+                return TransactionFormatter.format_all_transactions_response(result)
             else:
-                return "No transactions found"
+                return "📊 No transactions found."
 
         return "I processed your request."
 

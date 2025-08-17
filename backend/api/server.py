@@ -152,8 +152,8 @@ async def chat(request: ChatRequest):
     based on the content of your message using AI analysis.
 
     Examples:
-    - "Set my income to $5000" → Budget service
-    - "Add coffee $5" → Transaction service
+    - "Set my income to ₹5000" → Budget service
+    - "Add coffee ₹5" → Transaction service
     - "Show my budget plan" → Budget service
     - "Show recent transactions" → Transaction service
     """

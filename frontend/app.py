@@ -24,7 +24,7 @@ SAMPLE_RESPONSES = {
     "hello": "Hello! I'm BudgiBot, your friendly budgeting assistant. I can help you track expenses, set budgets, and analyze your spending patterns. How can I help you today?",
     "budget": "I can help you create and manage budgets! Here are some options:\n• Set monthly budget limits\n• Track spending by category\n• Get budget alerts\n• View budget vs actual spending\n\nWhat would you like to do?",
     "expenses": "Let me help you track your expenses! You can:\n• Add new transactions\n• View spending history\n• Categorize expenses\n• Get spending insights\n\nWould you like to add a new expense or view your spending history?",
-    "analytics": "Here's your spending analytics:\n\n📊 **This Month's Overview:**\n• Total Spent: $1,247.50\n• Budget Remaining: $752.50\n• Top Category: Food & Dining ($320)\n\n📈 **Trends:**\n• 15% increase from last month\n• Most expensive day: Friday\n• Average daily spending: $41.58\n\nWould you like to see more detailed analytics?",
+    "analytics": "Here's your spending analytics:\n\n📊 **This Month's Overview:**\n• Total Spent: ₹1,247.50\n• Budget Remaining: ₹752.50\n• Top Category: Food & Dining (₹320)\n\n📈 **Trends:**\n• 15% increase from last month\n• Most expensive day: Friday\n• Average daily spending: ₹41.58\n\nWould you like to see more detailed analytics?",
     "default": "I'm here to help with your budgeting needs! You can ask me about:\n• Setting up budgets\n• Tracking expenses\n• Spending analytics\n• Financial goals\n• Budget alerts\n\nWhat would you like to know?",
 }
 
@@ -109,7 +109,7 @@ def main():
     # Initialize session state
     if "messages" not in st.session_state:
         st.session_state.messages = []
-    
+
     if "input_key" not in st.session_state:
         st.session_state.input_key = 0
 
@@ -117,8 +117,8 @@ def main():
     st.markdown(
         """
     <div class="main-header">
-        <h1>🤖 Personal Finance Bot</h1>
-        <p>Intelligent AI assistant with automatic budget and transaction routing</p>
+        <h1>🤖 Budgi Bot</h1>
+        <p>Your friendly neighbourhood transaction and budgetting assistant</p>
     </div>
     """,
         unsafe_allow_html=True,
@@ -149,7 +149,7 @@ def main():
         user_input = st.text_input(
             "Type your message here...",
             key=f"user_input_{st.session_state.input_key}",
-            placeholder="Ask naturally: 'Set my income to $5000' or 'Add coffee $5'...",
+            placeholder="Ask naturally: 'Set my income to ₹5000' or 'Add coffee ₹5'...",
             label_visibility="collapsed",
         )
 

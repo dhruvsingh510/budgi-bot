@@ -65,16 +65,16 @@ The AI will automatically route your requests - just type naturally:
 
 **Budget Planning:**
 
-- "Set my income to $5000 with medium cost of living"
-- "Add a goal to save $10000 in 12 months"
+- "Set my income to ₹5000 with medium cost of living"
+- "Add a goal to save ₹10000 in 12 months"
 - "Show my budget plan"
-- "Adjust my food budget to $400"
+- "Adjust my food budget to ₹400"
 
 **Transaction Management:**
 
-- "Add coffee $5"
+- "Add coffee ₹5"
 - "Show recent transactions"
-- "Add groceries $85 to food category"
+- "Add groceries ₹85 to food category"
 - "Show all my food transactions"
 
 ## AI Routing Display

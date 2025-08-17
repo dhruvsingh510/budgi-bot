@@ -18,7 +18,7 @@ class ServiceRoute(BaseModel):
     """Pydantic model for service routing decision."""
 
     service: str = Field(
-        description="The service to route to: 'budget' or 'transaction' 'general'"
+        description="The service to route to: 'budget' or 'transaction' or 'general'"
     )
     confidence: float = Field(description="Confidence score between 0 and 1")
     reasoning: str = Field(description="Brief explanation for the routing decision")
@@ -64,8 +64,9 @@ class BudgetBot:
 
         # Setup intelligent routing workflow
         self._setup_routing_workflow()
-        self.logger.info("Intelligent Budget Bot with auto-routing initialized successfully")
-
+        self.logger.info(
+            "Intelligent Budget Bot with auto-routing initialized successfully"
+        )
 
     def _get_budget_memory_path(self) -> str:
         """Get path to budget memory file."""
@@ -100,10 +101,10 @@ class BudgetBot:
 
     BOT_EXAMPLES = """
       Examples:
-          - "Set my income to $5000" → BUDGET
-          - "Add goal to save $10000" → BUDGET  
+          - "Set my income to ₹5000" → BUDGET
+          - "Add goal to save ₹10000" → BUDGET  
           - "Show my budget plan" → BUDGET
-          - "Add coffee $5" → TRANSACTION
+          - "Add coffee ₹5" → TRANSACTION
           - "Show recent transactions" → TRANSACTION
           - "Edit my grocery purchase" → TRANSACTION
     """
@@ -178,7 +179,9 @@ class BudgetBot:
                 state["confidence"] = parsed.confidence
                 state["reasoning"] = parsed.reasoning
 
-                self.logger.info(f"Routing decision: {parsed.service} (confidence: {parsed.confidence:.2f}) - {parsed.reasoning}")
+                self.logger.info(
+                    f"Routing decision: {parsed.service} (confidence: {parsed.confidence:.2f}) - {parsed.reasoning}"
+                )
 
             except Exception as e:
                 self.logger.error(f"Routing error: {str(e)}", exc_info=True)
@@ -222,14 +225,16 @@ class BudgetBot:
                 response = self.llm.invoke([HumanMessage(content=general_prompt)])
                 state["response"] = response.content
             except Exception as e:
-                self.logger.error(f"❌ Error in general handler: {e}\nResponding with generic message")
+                self.logger.error(
+                    f"❌ Error in general handler: {e}\nResponding with generic message"
+                )
                 # Fallback response
                 state[
                     "response"
                 ] = """
                   👋 Hello! I'm your Personal Finance Bot. I can help you with budget planning and expense tracking. 
 
-                  💰 Try: "Set my income to $5000" or "Add coffee $5"
+                  💰 Try: "Set my income to ₹5000" or "Add coffee ₹5"
                   ❓ Ask: "What can you do?" for more details
 
                   How can I help with your finances today?
@@ -292,24 +297,30 @@ class BudgetBot:
         )
 
         try:
-          # Execute the routing workflow
-          final_state = self.compiled_routing_graph.invoke(initial_state)
+            # Execute the routing workflow
+            final_state = self.compiled_routing_graph.invoke(initial_state)
 
-          # Log routing decision
-          service_used = final_state.get("service_route", "unknown")
-          confidence = final_state.get("confidence", 0.0)
-          reasoning = final_state.get("reasoning", "")
-          
-          self.logger.info(f"Routed to {service_used} service (confidence: {confidence:.2f}) - {reasoning}")
-          
-          response = final_state.get("response", "Sorry, I couldn't process your request.")
-          
-          self.logger.info(f"Generated response length: {len(response)} characters")
-          
-          return response
+            # Log routing decision
+            service_used = final_state.get("service_route", "unknown")
+            confidence = final_state.get("confidence", 0.0)
+            reasoning = final_state.get("reasoning", "")
+
+            self.logger.info(
+                f"Routed to {service_used} service (confidence: {confidence:.2f}) - {reasoning}"
+            )
+
+            response = final_state.get(
+                "response", "Sorry, I couldn't process your request."
+            )
+
+            self.logger.info(f"Generated response length: {len(response)} characters")
+
+            return response
         except Exception as e:
-          self.logger.error(f"Error processing request '{user_input}': {str(e)}", exc_info=True)
-          return "Sorry, there was an error processing your request."
+            self.logger.error(
+                f"Error processing request '{user_input}': {str(e)}", exc_info=True
+            )
+            return "Sorry, there was an error processing your request."
 
 
 def main():
@@ -321,8 +332,8 @@ def main():
             "🧠 AI will automatically route your requests to Budget or Transaction services"
         )
         print("📝 Just type naturally:")
-        print("   • 'Set my income to $5000' (Budget)")
-        print("   • 'Add coffee $5' (Transaction)")
+        print("   • 'Set my income to ₹5000' (Budget)")
+        print("   • 'Add coffee ₹5' (Transaction)")
         print("   • 'Show my budget plan' (Budget)")
         print("   • 'Show recent transactions' (Transaction)")
         print("-" * 80)
