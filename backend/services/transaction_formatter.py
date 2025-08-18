@@ -133,11 +133,11 @@ class TransactionFormatter:
                 return "📋 No transactions found."
 
         if search_type == "category":
-            header = f"📋 **Found {len(transactions)} transactions in {category} category:**\n"
+            header = (f"📋 **Found {len(transactions)} transactions in {category} category:**")
         elif search_type == "recent":
-            header = f"📋 **Found {len(transactions)} similar recent transactions:**\n"
+            header = f"📋 **Found {len(transactions)} similar recent transactions:**"
         else:
-            header = f"📋 **Found {len(transactions)} transactions:**\n"
+            header = f"📋 **Found {len(transactions)} transactions:**"
 
         transaction_list = cls.format_transaction_list(transactions)
-        return header + transaction_list
+        return header + "\n\n" + transaction_list

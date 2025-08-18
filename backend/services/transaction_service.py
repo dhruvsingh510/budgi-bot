@@ -109,6 +109,38 @@ class TransactionService:
         except Exception:
             pass
 
+    def _verify_document_in_vector_store(self, item_name: str, doc_id: str) -> bool:
+        """
+        Verify that a document with the given item_name and doc_id exists in the vector store.
+        Returns True if found, False otherwise.
+        """
+        if not self.vector_store:
+            return False
+
+        try:
+            # Search for the exact document we want to verify
+            similar_docs = self.vector_store.similarity_search(item_name, k=10)
+
+            # Loop through retrieved documents to verify our document is present
+            for retrieved_doc in similar_docs:
+                if (
+                    retrieved_doc.page_content == item_name
+                    and retrieved_doc.metadata.get("doc_id") == doc_id
+                ):
+                    self.logger.info(
+                        f"Successfully verified document in vector store: {item_name} with doc_id: {doc_id}"
+                    )
+                    return True
+
+            self.logger.warning(
+                f"Document verification failed for: {item_name} with doc_id: {doc_id}"
+            )
+            return False
+
+        except Exception as e:
+            self.logger.error(f"Error during document verification: {str(e)}")
+            return False
+
     # Transaction operations
     def add_transaction(
         self,
@@ -143,9 +175,13 @@ class TransactionService:
                     "category": category or "Miscellaneous",
                     "amount": amount or 0.0,
                     "doc_id": doc_id,
+                    "source": "user",
                 },
             )
             self.vector_store.add_documents([doc])
+
+            # Verify the document was actually added to the vector store
+            self._verify_document_in_vector_store(item_name, doc_id)
 
         return {
             "status": "success",
@@ -239,25 +275,82 @@ class TransactionService:
     def get_recent_similar_transactions(
         self, input_text: str, k: int = 3
     ) -> List[Dict]:
-        """Get recent transactions similar to the user input from the vector DB."""
+        """Get recent transactions similar to the user input from the vector DB, excluding training data."""
         if not self.vector_store:
-            return []
+            # Fallback to getting recent transactions from memory when no vector store
+            return sorted(
+                self.transactions, key=lambda x: x.get("datetime", ""), reverse=True
+            )[:k]
 
         try:
-            similar_docs = self.vector_store.similarity_search(input_text, k=k)
+            # First try to search with user filter
+            similar_docs = []
+            try:
+                similar_docs = self.vector_store.similarity_search(
+                    input_text, k=k, filter={"source": "user"}
+                )
+                self.logger.info(
+                    f"Found {len(similar_docs)} similar user documents in vector store"
+                )
+            except Exception as filter_error:
+                self.logger.warning(
+                    f"Filtered search failed: {str(filter_error)}, trying unfiltered search"
+                )
+
+            # If no results with filter, try without filter (for backward compatibility)
+            if not similar_docs:
+                self.logger.info(
+                    "No results with user filter, trying unfiltered search"
+                )
+                similar_docs = self.vector_store.similarity_search(input_text, k=k)
+                self.logger.info(
+                    f"Found {len(similar_docs)} similar documents in unfiltered search"
+                )
+
             results = []
 
             for doc in similar_docs:
-                doc_id = doc.metadata.get("doc_id")
-                matching_transaction = next(
-                    (t for t in self.transactions if t.get("doc_id") == doc_id), None
-                )
-                if matching_transaction:
-                    results.append(matching_transaction)
+                # Skip training data if present (for unfiltered search)
+                if doc.metadata.get("source") == "training_data":
+                    self.logger.debug(
+                        f"Skipping training data document: {doc.page_content}"
+                    )
+                    continue
 
+                doc_id = doc.metadata.get("doc_id")
+                if doc_id:
+                    # Find matching transaction in memory
+                    matching_transaction = next(
+                        (t for t in self.transactions if t.get("doc_id") == doc_id),
+                        None,
+                    )
+                    if matching_transaction:
+                        results.append(matching_transaction)
+                        self.logger.debug(
+                            f"Added matching transaction: {matching_transaction.get('item_name')}"
+                        )
+                    else:
+                        self.logger.warning(
+                            f"No matching transaction found for doc_id: {doc_id}"
+                        )
+                else:
+                    self.logger.warning(
+                        f"Document missing doc_id in metadata: {doc.page_content}"
+                    )
+
+                # Stop when we have enough results
+                if len(results) >= k:
+                    break
+
+            self.logger.info(f"Returning {len(results)} transactions")
             return results
-        except Exception:
-            return []
+
+        except Exception as e:
+            self.logger.error(f"Error in get_recent_similar_transactions: {str(e)}")
+            # Fallback to recent transactions from memory
+            return sorted(
+                self.transactions, key=lambda x: x.get("datetime", ""), reverse=True
+            )[:k]
 
     def get_all_transactions_in_all_categories(self) -> Dict:
         """Return all transactions grouped by category with per-category totals and counts."""
@@ -450,6 +543,9 @@ class TransactionService:
             return state
 
         def add_node(state: TransactionState) -> TransactionState:
+            self.logger.info(
+                f"Adding transaction:\nInput: {state.input}, Amount: {state.amount}, Category: {state.category}, Item Name: {state.item_name}"
+            )
             result = self.add_transaction(
                 state.input, state.amount, state.category, state.item_name
             )
@@ -457,6 +553,9 @@ class TransactionService:
             return state
 
         def edit_node(state: TransactionState) -> TransactionState:
+            self.logger.info(
+                f"Editing transaction: \nInput: {state.input}, Amount: {state.amount}, Category: {state.category}, Item Name: {state.item_name}"
+            )
             result = self.edit_transaction(
                 state.input, state.amount, state.category, state.item_name
             )
@@ -464,6 +563,9 @@ class TransactionService:
             return state
 
         def delete_node(state: TransactionState) -> TransactionState:
+            self.logger.info(
+                f"Deleting transaction: \nInput: {state.input}, Amount: {state.amount}, Category: {state.category}, Item Name: {state.item_name}"
+            )
             result = self.delete_transaction(
                 state.input, state.amount, state.category, state.item_name
             )
@@ -471,16 +573,25 @@ class TransactionService:
             return state
 
         def search_node_by_category(state: TransactionState) -> TransactionState:
+            self.logger.info(
+                f"Searching transaction by category: \nInput: {state.input}, Amount: {state.amount}, Category: {state.category}, Item Name: {state.item_name}"
+            )
             result = self.search_transaction_by_category(state.category)
             state.result = {"transactions": result}
             return state
 
         def get_recent_node(state: TransactionState) -> TransactionState:
+            self.logger.info(
+                f"Getting recent transactions: \nInput: {state.input}, Amount: {state.amount}, Category: {state.category}, Item Name: {state.item_name}"
+            )
             result = self.get_recent_similar_transactions(state.input, 3)
             state.result = {"transactions": result}
             return state
 
         def get_all_by_category_node(state: TransactionState) -> TransactionState:
+            self.logger.info(
+                f"Getting all transactions by category: \nInput: {state.input}, Amount: {state.amount}, Category: {state.category}, Item Name: {state.item_name}"
+            )
             result = self.get_all_transactions_in_all_categories()
             state.result = result
             return state
