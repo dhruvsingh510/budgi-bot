@@ -173,18 +173,24 @@ async def chat(request: ChatRequest):
 
         # Get routing information from the last state (if available)
         try:
-            last_state = getattr(bot_instance, "last_routing_state", None)
-            if last_state:
-                service_used = last_state.get("service_route", "unknown")
-                confidence = last_state.get("confidence", 0.0)
-                reasoning = last_state.get(
-                    "reasoning", "No routing information available"
-                )
-            else:
-                service_used = "unknown"
+            last_state = getattr(bot_instance, "last_routing_state", {})
+            service_used = last_state.get("service_route", "unknown")
+            confidence = last_state.get("confidence", 0.0)
+            reasoning = last_state.get("reasoning", "No routing information available")
+
+            # Ensure confidence is a float and within valid range
+            try:
+                confidence = float(confidence)
+                confidence = max(0.0, min(1.0, confidence))  # Clamp between 0 and 1
+            except (TypeError, ValueError):
                 confidence = 0.0
-                reasoning = "Routing information not available"
-        except:
+
+            print(
+                f"🔍 Routing Info - Service: {service_used}, Confidence: {confidence:.2f}, Reasoning: {reasoning}"
+            )
+
+        except Exception as e:
+            print(f"⚠️ Error retrieving routing information: {e}")
             service_used = "unknown"
             confidence = 0.0
             reasoning = "Could not retrieve routing information"

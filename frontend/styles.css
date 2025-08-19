@@ -129,6 +129,70 @@
         40% { transform: scale(1); opacity: 1; }
     }
 
+    /* AI Routing Information Section */
+    .routing-info {
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        padding: 16px;
+        margin: 8px 0;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+    }
+
+    .service-badge {
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.9rem;
+        font-weight: 600;
+        margin: 4px 0;
+    }
+
+    .service-budget {
+        background: linear-gradient(135deg, #10b981, #059669);
+        color: white;
+    }
+
+    .service-transaction {
+        background: linear-gradient(135deg, #3b82f6, #2563eb);
+        color: white;
+    }
+
+    .service-general {
+        background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+        color: white;
+    }
+
+    .service-unknown {
+        background: linear-gradient(135deg, #6b7280, #4b5563);
+        color: white;
+    }
+
+    .confidence-indicator {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin: 8px 0;
+    }
+
+    .confidence-bar {
+        flex: 1;
+        height: 6px;
+        background: var(--border-color);
+        border-radius: 3px;
+        overflow: hidden;
+    }
+
+    .confidence-fill {
+        height: 100%;
+        border-radius: 3px;
+        transition: width 0.3s ease;
+    }
+
+    .confidence-high { background: var(--success-color); }
+    .confidence-medium { background: var(--warning-color); }
+    .confidence-low { background: var(--error-color); }
+
     /* Hide Streamlit elements */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}

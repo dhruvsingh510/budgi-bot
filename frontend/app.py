@@ -91,6 +91,23 @@ def get_demo_response(user_message):
         return SAMPLE_RESPONSES["default"]
 
 
+def get_service_indicator():
+    """Get service indicator emoji based on last API info"""
+    if "last_api_info" in st.session_state and st.session_state.last_api_info:
+        service = st.session_state.last_api_info.get("service_used", "").title()
+        service_emoji = {
+            "Budget": "💰",
+            "Transaction": "💳",
+            "General": "🤖",
+            "Unknown": "❓",
+            "Error": "❌",
+        }
+        emoji = service_emoji.get(service, "")
+        if emoji:
+            return f" {emoji}"
+    return ""
+
+
 def display_typing_indicator():
     """Display typing indicator"""
     st.markdown(
@@ -135,8 +152,12 @@ def main():
                 unsafe_allow_html=True,
             )
         else:
+            # Add service indicator if available
+            service_indicator = message.get("service_indicator", "")
+            content_with_indicator = f'{message["content"]}{service_indicator}'
+
             st.markdown(
-                f'<div class="bot-message">{message["content"]}</div>',
+                f'<div class="bot-message">{content_with_indicator}</div>',
                 unsafe_allow_html=True,
             )
 
@@ -171,8 +192,16 @@ def main():
 
             # Get bot response
             bot_response = get_bot_response(user_input.strip())
+
+            # Add service indicator to the response
+            service_indicator = get_service_indicator()
+
             st.session_state.messages.append(
-                {"role": "assistant", "content": bot_response}
+                {
+                    "role": "assistant",
+                    "content": bot_response,
+                    "service_indicator": service_indicator,
+                }
             )
 
             # Clear input by incrementing the key (creates new widget)
@@ -187,8 +216,16 @@ def main():
             user_message = "Show recent transactions"
             st.session_state.messages.append({"role": "user", "content": user_message})
             bot_response = get_bot_response(user_message)
+
+            # Add service indicator
+            service_indicator = get_service_indicator()
+
             st.session_state.messages.append(
-                {"role": "assistant", "content": bot_response}
+                {
+                    "role": "assistant",
+                    "content": bot_response,
+                    "service_indicator": service_indicator,
+                }
             )
             st.rerun()
 
@@ -196,8 +233,16 @@ def main():
             user_message = "Show my budget plan"
             st.session_state.messages.append({"role": "user", "content": user_message})
             bot_response = get_bot_response(user_message)
+
+            # Add service indicator
+            service_indicator = get_service_indicator()
+
             st.session_state.messages.append(
-                {"role": "assistant", "content": bot_response}
+                {
+                    "role": "assistant",
+                    "content": bot_response,
+                    "service_indicator": service_indicator,
+                }
             )
             st.rerun()
 
@@ -205,8 +250,16 @@ def main():
             user_message = "How do I add a transaction?"
             st.session_state.messages.append({"role": "user", "content": user_message})
             bot_response = get_bot_response(user_message)
+
+            # Add service indicator
+            service_indicator = get_service_indicator()
+
             st.session_state.messages.append(
-                {"role": "assistant", "content": bot_response}
+                {
+                    "role": "assistant",
+                    "content": bot_response,
+                    "service_indicator": service_indicator,
+                }
             )
             st.rerun()
 
@@ -229,11 +282,44 @@ def main():
         if "last_api_info" in st.session_state and st.session_state.last_api_info:
             info = st.session_state.last_api_info
             st.markdown("---")
-            st.markdown("### Last AI Routing")
-            st.markdown(f"**Service:** {info.get('service_used', 'unknown').title()}")
-            st.markdown(f"**Confidence:** {info.get('confidence', 0):.2f}")
-            with st.expander("Reasoning"):
-                st.markdown(info.get("reasoning", "No reasoning available"))
+            st.markdown("### 🧠 Last AI Routing")
+
+            service = info.get("service_used", "unknown").title()
+            confidence = info.get("confidence", 0)
+            reasoning = info.get("reasoning", "No reasoning available")
+
+            # Service badge with emoji
+            service_emoji = {
+                "Budget": "💰",
+                "Transaction": "💳",
+                "General": "🤖",
+                "Unknown": "❓",
+                "Error": "❌",
+            }
+            emoji = service_emoji.get(service, "❓")
+
+            # Confidence color and class
+            if confidence >= 0.8:
+                confidence_color = "🟢"  # High confidence
+                confidence_class = "confidence-high"
+            elif confidence >= 0.6:
+                confidence_color = "🟡"  # Medium confidence
+                confidence_class = "confidence-medium"
+            else:
+                confidence_color = "🔴"  # Low confidence
+                confidence_class = "confidence-low"
+
+            # Display routing info using Streamlit components
+            st.markdown(f"**Service Used:** {emoji} {service}")
+            st.markdown(
+                f"**Confidence Score:** {confidence_color} {confidence:.2f} ({confidence*100:.0f}%)"
+            )
+
+            # Progress bar for confidence visualization
+            st.progress(confidence)
+
+            with st.expander("🔍 Routing Reasoning", expanded=False):
+                st.markdown(reasoning)
 
         st.markdown("---")
         st.markdown("### Available Endpoints")
