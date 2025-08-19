@@ -136,12 +136,14 @@ class BudgetService:
         self.vector_store = vector_store
         self.memory_path = memory_path
 
+        # Initialize logger first before any method that uses it
+        self.logger = get_service_logger("budget")
+
         # Load context from memory
         self.context = self._load_memory()
 
         # Initialize the LangGraph workflow
         self._setup_workflow()
-        self.logger = get_service_logger("budget")
         self.logger.info("Budget service initialized")
 
     def _load_memory(self) -> Dict[str, Any]:
@@ -155,8 +157,11 @@ class BudgetService:
                 profile = BudgetProfile(**profile)
             goals = [FinancialGoal(**g) for g in data.get("goals", [])]
             plan = data.get("plan")
-            return {"profile": profile, "goals": goals, "plan": plan}
+            loaded_budget_profile = {"profile": profile, "goals": goals, "plan": plan}
+            self.logger.info(f"Loaded memory: {loaded_budget_profile}")
+            return loaded_budget_profile
         except Exception:
+            self.logger.error("Failed to load memory")
             return {"profile": None, "goals": [], "plan": None}
 
     def _save_memory(self, ctx: Dict[str, Any]) -> None:
@@ -172,6 +177,7 @@ class BudgetService:
             }
             with open(self.memory_path, "w") as f:
                 json.dump(serializable, f, indent=2)
+            self.logger.info(f"Saved memory: {serializable}")
         except Exception as e:
             self.logger.error(f"Warning: failed saving memory: {e}")
 
@@ -231,21 +237,22 @@ class BudgetService:
             "savings_shortfall": savings_shortfall,
             "income": income,
         }
+        self.logger.info(f"Allocated budget: {plan}")
         return plan
 
     def render_plan(self, plan: Dict[str, Any]) -> str:
         lines = []
-        lines.append(f"Net income: {plan['income']:.2f}")
-        lines.append("Proposed monthly allocations:")
+        lines.append(f"Monthly Net Income: ₹{plan['income']:,.2f}")
+        lines.append("Proposed Monthly Allocations:")
         for cat in self.CATEGORIES:
             amt = plan["allocations"][cat]
             pct = (amt / max(plan["income"], 1e-6)) * 100
-            lines.append(f"- {cat}: {amt:.2f} ({pct:.1f}%)")
+            lines.append(f"- {cat}: ₹{amt:,.2f} ({pct:.1f}%)")
         if plan["required_savings"] > 0:
-            lines.append(f"Savings toward goals: {plan['required_savings']:.2f}")
+            lines.append(f"Savings toward goals: ₹{plan['required_savings']:,.2f}")
             if plan["savings_shortfall"] > 0:
                 lines.append(
-                    f"Shortfall: {plan['savings_shortfall']:.2f} — consider extending deadlines or tightening discretionary spend."
+                    f"Shortfall: ₹{plan['savings_shortfall']:,.2f} — consider extending deadlines or tightening discretionary spend."
                 )
         return "\n".join(lines)
 
@@ -299,6 +306,9 @@ class BudgetService:
         You should keep your responses short, meaningful, and also professional.
         Try to use simple language that is easily understandable, and not wordy.
 
+        All financial amounts should be displayed in Indian Rupees (INR) using the ₹ symbol.
+        When setting profiles, users provide annual income which is automatically converted to monthly income for budget calculations.
+
         DO NOT REVEAL EXTRA INFORMATION OF YOURSELF SO PEOPLE CAN TELL THAT YOU ARE A BOT.
         """
 
@@ -321,6 +331,7 @@ class BudgetService:
 
     def get_context(self) -> Dict[str, Any]:
         """Get current budget context."""
+        self.logger.info(f"Getting context: {self.context}")
         return self.context
 
     def set_context(self, context: Dict[str, Any]) -> None:
@@ -333,6 +344,7 @@ class BudgetService:
                 "plan": context.get("plan"),
             }
         )
+        self.logger.info(f"Set context: {self.context}")
         self._save_memory(self.context)
 
     def _setup_workflow(self):
@@ -343,15 +355,22 @@ class BudgetService:
         def set_profile_tool(
             net_income: str, cost_of_living: str, household_size: str
         ) -> str:
-            """Set the user's profile: net monthly income, cost_of_living in {low, medium, high}, and household size."""
+            """Set the user's profile: net annual income in INR (will be converted to monthly), cost_of_living in {low, medium, high}, and household size."""
+            # Store as monthly income for internal calculations (annual / 12)
+            annual_income = self._parse_float(net_income)
+            monthly_income = annual_income / 12
+
             profile = BudgetProfile(
-                net_income=self._parse_float(net_income),
+                net_income=monthly_income,
                 cost_of_living=str(cost_of_living).lower(),
                 household_size=self._parse_int(household_size),
             )
             self.context["profile"] = profile
             self._save_memory(self.context)
-            return "Profile saved. You can now ask to a 'add financial goal' or ask to 'propose budget'. No further action needed."
+            self.logger.info(
+                f"Profile saved: annual_income={annual_income}, monthly_income={monthly_income}, profile={profile}"
+            )
+            return f"Profile saved successfully! Annual income: ₹{annual_income:,.0f}, Monthly income: ₹{monthly_income:,.2f}, Cost of living: {cost_of_living.title()}, Household size: {household_size}. You can now ask to add a financial goal or propose budget."
 
         @tool
         def add_goal_tool(
@@ -377,6 +396,7 @@ class BudgetService:
                 )
 
             self._save_memory(self.context)
+            self.logger.info(f"Financial goal added: {goal}")
             return f"Added financial goal '{name}'."
 
         @tool
@@ -389,6 +409,7 @@ class BudgetService:
             plan = self.allocate_budget(profile, goals)
             self.context["plan"] = plan
             self._save_memory(self.context)
+            self.logger.info(f"Proposed budget: {plan}")
             return self.render_plan(plan)
 
         @tool
@@ -402,6 +423,7 @@ class BudgetService:
             plan["allocations"][category] = max(self._parse_float(amount), 0.0)
             self.context["plan"] = plan
             self._save_memory(self.context)
+            self.logger.info(f"Adjusted category: {category} to {amount}")
             return self.render_plan(plan)
 
         @tool
@@ -410,6 +432,7 @@ class BudgetService:
             self.context["goals"] = []
             self.context["plan"] = None
             self._save_memory(self.context)
+            self.logger.info("Cleared all goals and the current plan.")
             return "Cleared all goals and the current plan."
 
         @tool
@@ -417,6 +440,7 @@ class BudgetService:
             """Remove the current budget plan."""
             self.context["plan"] = None
             self._save_memory(self.context)
+            self.logger.info("Cleared current budget plan.")
             return "Cleared current budget plan."
 
         @tool
@@ -425,6 +449,7 @@ class BudgetService:
             self.context["profile"] = None
             self.context["plan"] = None
             self._save_memory(self.context)
+            self.logger.info("Cleared profile, and plan.")
             return "Cleared profile, and plan."
 
         @tool
@@ -433,6 +458,7 @@ class BudgetService:
             plan = self.context.get("plan")
             if not plan:
                 return "No plan yet. Ask to 'propose budget' first."
+            self.logger.info(f"Showing plan: {plan}")
             return self.render_plan(plan)
 
         @tool
@@ -441,11 +467,12 @@ class BudgetService:
             goals = self.context.get("goals", [])
             if not goals:
                 return "No goals saved yet. Please create a 'financial goal' first."
-            lines = ["Saved goals:"]
+            lines = ["Saved Financial Goals:"]
             for g in goals:
                 lines.append(
-                    f"- {g.name}: target {g.target_amount:.2f} in {g.months} months (priority {g.priority})"
+                    f"- {g.name}: target ₹{g.target_amount:,.2f} in {g.months} months (priority {g.priority})"
                 )
+            self.logger.info(f"Showing goals: {lines}")
             return "\n".join(lines)
 
         @tool
@@ -454,7 +481,9 @@ class BudgetService:
             p = self.context.get("profile")
             if not p:
                 return "No profile saved yet. Please create a 'profile' first."
-            return f"Profile: net_income={p.net_income}, cost_of_living={p.cost_of_living}, household_size={p.household_size}"
+            self.logger.info(f"Showing profile: {p}")
+            annual_income = p.net_income * 12
+            return f"Current Profile:\n- Annual Income: ₹{annual_income:,.0f}\n- Monthly Income: ₹{p.net_income:,.2f}\n- Cost of Living: {p.cost_of_living.title()}\n- Household Size: {p.household_size}"
 
         self.tools = [
             set_profile_tool,
