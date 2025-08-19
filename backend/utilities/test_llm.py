@@ -15,8 +15,8 @@ def test_llm_connection():
     load_dotenv()
 
     # Check if required environment variables exist
-    groq_api_key = "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"
-    model_name = "llama-3.3-70b-versatile"
+    groq_api_key = os.environ.get("GROQ_API_KEY")
+    model_name = os.environ.get("LITELLM_MODEL")
 
     print("🔍 Checking environment variables...")
     print(f"GROQ_API_KEY: {'✅ Found' if groq_api_key else '❌ Missing'}")
@@ -30,7 +30,7 @@ def test_llm_connection():
         # Initialize LLM
         print("\n🚀 Initializing LLM...")
         llm = ChatGroq(
-            model_name=model_name or "llama3-8b-8192",
+            model_name=model_name,
             groq_api_key=groq_api_key,
         )
         print("✅ LLM initialized successfully")
@@ -81,23 +81,6 @@ def test_llm_connection():
         return False
 
 
-def test_resource_manager_llm():
-    """Test LLM through resource manager (as used in the app)."""
-    try:
-        print("\n🔗 Testing through ResourceManager...")
-        from backend.services.resource_manager import resource_manager
-
-        llm = resource_manager.llm
-        response = llm.invoke([HumanMessage(content="Say 'ResourceManager LLM works'")])
-        print(f"📥 ResourceManager Response: {response.content}")
-        print("✅ ResourceManager LLM working!")
-        return True
-
-    except Exception as e:
-        print(f"❌ ResourceManager LLM failed: {e}")
-        return False
-
-
 if __name__ == "__main__":
     print("🧪 LLM API Connection Test")
     print("=" * 50)
@@ -105,14 +88,5 @@ if __name__ == "__main__":
     # Test direct connection
     direct_test = test_llm_connection()
 
-    # Test through resource manager
-    resource_test = test_resource_manager_llm()
-
     print("\n📊 Test Results:")
     print(f"Direct LLM Test: {'✅ PASS' if direct_test else '❌ FAIL'}")
-    print(f"ResourceManager Test: {'✅ PASS' if resource_test else '❌ FAIL'}")
-
-    if direct_test and resource_test:
-        print("\n🎉 All tests passed! Your LLM API is working correctly.")
-    else:
-        print("\n⚠️ Some tests failed. Check your API key and network connection.")

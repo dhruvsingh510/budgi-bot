@@ -23,18 +23,11 @@ A modern Streamlit chatbot interface that connects to the backend's intelligent 
 pip install -r requirements.txt
 ```
 
-2. Create environment file (optional):
-
-```bash
-# Create .env file with custom settings (optional)
-echo "API_BASE_URL=http://localhost:8080" > .env
-echo "API_TIMEOUT=30" >> .env
-```
+2. Create environment files with API key value for frontend and backend
 
 ## Running the App
 
 Make sure your backend is running first:
-
 ```bash
 # In the backend directory
 cd ../backend
@@ -42,7 +35,6 @@ python main.py
 ```
 
 Then start the frontend:
-
 ```bash
 # In the frontend directory
 streamlit run app.py
@@ -86,12 +78,6 @@ The sidebar shows:
 - **Confidence Score** - How confident the AI was in its decision
 - **Reasoning** - Why the AI chose that service
 
-## Customization
-
-- **Colors**: Update `THEME_COLORS` in `config.py`
-- **API URL**: Set `API_BASE_URL` environment variable
-- **Timeout**: Set `API_TIMEOUT` environment variable
-- **Styling**: Edit the CSS in `app.py`
 
 ## Troubleshooting
 

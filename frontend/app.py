@@ -149,7 +149,7 @@ def main():
         user_input = st.text_input(
             "Type your message here...",
             key=f"user_input_{st.session_state.input_key}",
-            placeholder="Ask naturally: 'Set my income to ₹5000' or 'Add coffee ₹5'...",
+            placeholder="Ask naturally: 'Set my budget profile' or 'Add coffee ₹5'...",
             label_visibility="collapsed",
         )
 

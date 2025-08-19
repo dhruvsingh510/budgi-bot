@@ -109,6 +109,27 @@ class TransactionService:
         except Exception:
             pass
 
+    def _save_vector_store(self):
+        """Save the vector store to disk for persistence."""
+        if not self.vector_store:
+            return
+
+        try:
+            # Get the faiss store path from resource manager pattern
+            faiss_path = os.path.join(
+                os.path.dirname(self.memory_path), "faiss_store_transaction"
+            )
+
+            # Create directory if it doesn't exist
+            os.makedirs(faiss_path, exist_ok=True)
+
+            # Save the vector store
+            self.vector_store.save_local(faiss_path)
+            self.logger.info(f"✅ Saved vector store to {faiss_path}")
+
+        except Exception as e:
+            self.logger.error(f"❌ Failed to save vector store: {str(e)}")
+
     def _verify_document_in_vector_store(self, item_name: str, doc_id: str) -> bool:
         """
         Verify that a document with the given item_name and doc_id exists in the vector store.
@@ -180,6 +201,9 @@ class TransactionService:
             )
             self.vector_store.add_documents([doc])
 
+            # Save the updated vector store to disk
+            self._save_vector_store()
+
             # Verify the document was actually added to the vector store
             self._verify_document_in_vector_store(item_name, doc_id)
 
@@ -222,6 +246,7 @@ class TransactionService:
 
         # Save updated transactions
         self._save_transactions(self.transactions)
+        self._save_vector_store()
 
         return {
             "status": "success",
@@ -257,6 +282,7 @@ class TransactionService:
             t for t in self.transactions if t.get("doc_id") != best_match.get("doc_id")
         ]
         self._save_transactions(self.transactions)
+        self._save_vector_store()
 
         return {
             "status": "success",
@@ -272,6 +298,43 @@ class TransactionService:
                 results.append(transaction)
         return results
 
+    def print_content_of_vector_store(self):
+        """Print the content of the vector store for debugging."""
+        if not self.vector_store:
+            self.logger.info("❌ No vector store available")
+            return
+
+        try:
+            # Get a large number of documents to see everything in the store
+            all_docs = self.vector_store.similarity_search(
+                "", k=100
+            )  # Empty query to get all
+
+            self.logger.info(
+                f"🔍 Vector Store Contents - Total documents: {len(all_docs)}"
+            )
+            self.logger.info("=" * 80)
+
+            for i, doc in enumerate(all_docs, 1):
+                content = doc.page_content
+                metadata = doc.metadata
+                doc_id = metadata.get("doc_id", "NO_DOC_ID")
+                source = metadata.get("source", "NO_SOURCE")
+                category = metadata.get("category", "NO_CATEGORY")
+                amount = metadata.get("amount", "NO_AMOUNT")
+
+                self.logger.info(f"📄 Document {i}:")
+                self.logger.info(f"   Content: '{content}'")
+                self.logger.info(f"   Doc ID: {doc_id}")
+                self.logger.info(f"   Source: {source}")
+                self.logger.info(f"   Category: {category}")
+                self.logger.info(f"   Amount: {amount}")
+                self.logger.info(f"   Full Metadata: {metadata}")
+                self.logger.info("-" * 60)
+
+        except Exception as e:
+            self.logger.error(f"❌ Error reading vector store contents: {str(e)}")
+
     def get_recent_similar_transactions(
         self, input_text: str, k: int = 3
     ) -> List[Dict]:
@@ -286,38 +349,34 @@ class TransactionService:
             # First try to search with user filter
             similar_docs = []
             try:
-                similar_docs = self.vector_store.similarity_search(
-                    input_text, k=k, filter={"source": "user"}
-                )
-                self.logger.info(
-                    f"Found {len(similar_docs)} similar user documents in vector store"
-                )
+                similar_docs = self.vector_store.similarity_search(input_text, k=k, filter={"source": "user"})
+                self.logger.info(f"Found {len(similar_docs)} similar user documents in vector store")
             except Exception as filter_error:
-                self.logger.warning(
-                    f"Filtered search failed: {str(filter_error)}, trying unfiltered search"
-                )
+                self.logger.warning(f"Filtered search failed: {str(filter_error)}, trying unfiltered search")
 
             # If no results with filter, try without filter (for backward compatibility)
             if not similar_docs:
-                self.logger.info(
-                    "No results with user filter, trying unfiltered search"
-                )
+                self.logger.info("No results with user filter, trying unfiltered search")
                 similar_docs = self.vector_store.similarity_search(input_text, k=k)
-                self.logger.info(
-                    f"Found {len(similar_docs)} similar documents in unfiltered search"
-                )
+                self.logger.info(f"Found {len(similar_docs)} similar documents in unfiltered search")
 
             results = []
 
+            # Debug: Log all available transaction doc_ids
+            memory_doc_ids = [
+                t.get("doc_id") for t in self.transactions if t.get("doc_id")
+            ]
+            self.logger.info(f"Available transaction doc_ids in memory: {memory_doc_ids}")
+
             for doc in similar_docs:
-                # Skip training data if present (for unfiltered search)
+                # # Skip training data if present (for unfiltered search)
                 if doc.metadata.get("source") == "training_data":
-                    self.logger.debug(
-                        f"Skipping training data document: {doc.page_content}"
-                    )
+                    self.logger.info(f"🚫 Skipping training data document: {doc.page_content}, metadata: {doc.metadata}")
                     continue
 
                 doc_id = doc.metadata.get("doc_id")
+                self.logger.info(f"Processing vector doc: content='{doc.page_content}', doc_id='{doc_id}', metadata={doc.metadata}")
+
                 if doc_id:
                     # Find matching transaction in memory
                     matching_transaction = next(
@@ -326,17 +385,25 @@ class TransactionService:
                     )
                     if matching_transaction:
                         results.append(matching_transaction)
-                        self.logger.debug(
-                            f"Added matching transaction: {matching_transaction.get('item_name')}"
-                        )
+                        self.logger.info(f"✅ Successfully matched: {matching_transaction.get('item_name')} with doc_id: {doc_id}")
                     else:
-                        self.logger.warning(
-                            f"No matching transaction found for doc_id: {doc_id}"
+                        self.logger.warning(f"❌ No matching transaction found for doc_id: {doc_id}")
+                        # Try to find by item name as fallback
+                        fallback_match = next(
+                            (
+                                t
+                                for t in self.transactions
+                                if t.get("item_name") == doc.page_content
+                            ),
+                            None,
                         )
+                        if fallback_match:
+                            self.logger.info(f"🔄 Found fallback match by item_name: {fallback_match.get('item_name')}")
+                            results.append(fallback_match)
+                        else:
+                            self.logger.warning(f"🚫 No fallback match found for item_name: {doc.page_content}")
                 else:
-                    self.logger.warning(
-                        f"Document missing doc_id in metadata: {doc.page_content}"
-                    )
+                    self.logger.warning(f"Document missing doc_id in metadata: {doc.page_content}")
 
                 # Stop when we have enough results
                 if len(results) >= k:

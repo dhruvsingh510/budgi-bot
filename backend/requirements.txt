@@ -9,4 +9,4 @@ langgraph==0.2.72
 fastapi>=0.104.1
 uvicorn[standard]>=0.24.0
 pydantic>=2.5.0
-pytz
+pytz==2025.2
