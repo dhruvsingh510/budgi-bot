@@ -1,4 +1,4 @@
-# Personal Finance Bot Frontend
+# BudgiBot
 
 🤖 **Intelligent AI-powered personal finance assistant with automatic routing**
 
