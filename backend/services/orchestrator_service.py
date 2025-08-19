@@ -5,6 +5,7 @@ from transaction_service import TransactionService
 import os
 from pathlib import Path
 from typing import Dict, Any, Tuple
+from datetime import datetime
 from logger_config import get_service_logger
 from langgraph.graph import StateGraph, START, END
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
@@ -62,11 +63,12 @@ class BudgetBot:
             memory_path=self._get_transaction_memory_path(),
         )
 
+        # Store last routing state for API access
+        self.last_routing_state = {}
+
         # Setup intelligent routing workflow
         self._setup_routing_workflow()
-        self.logger.info(
-            "BudgiBot initialized successfully"
-        )
+        self.logger.info("BudgiBot initialized successfully")
 
     def _get_budget_memory_path(self) -> str:
         """Get path to budget memory file."""
@@ -300,10 +302,18 @@ class BudgetBot:
             # Execute the routing workflow
             final_state = self.compiled_routing_graph.invoke(initial_state)
 
-            # Log routing decision
+            # Store routing information for API access
             service_used = final_state.get("service_route", "unknown")
             confidence = final_state.get("confidence", 0.0)
             reasoning = final_state.get("reasoning", "")
+
+            self.last_routing_state = {
+                "service_route": service_used,
+                "confidence": confidence,
+                "reasoning": reasoning,
+                "user_input": user_input,
+                "timestamp": datetime.now().isoformat(),
+            }
 
             self.logger.info(
                 f"Routed to {service_used} service (confidence: {confidence:.2f}) - {reasoning}"
@@ -320,6 +330,16 @@ class BudgetBot:
             self.logger.error(
                 f"Error processing request '{user_input}': {str(e)}", exc_info=True
             )
+
+            # Store error state
+            self.last_routing_state = {
+                "service_route": "error",
+                "confidence": 0.0,
+                "reasoning": f"Error occurred: {str(e)}",
+                "user_input": user_input,
+                "timestamp": datetime.now().isoformat(),
+            }
+
             return "Sorry, there was an error processing your request."
 
 
