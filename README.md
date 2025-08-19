@@ -30,7 +30,6 @@ pip install -r requirements.txt
 Make sure your backend is running first:
 ```bash
 # In the backend directory
-cd ../backend
 python main.py
 ```
 
