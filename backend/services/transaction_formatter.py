@@ -1,7 +1,3 @@
-"""
-Transaction formatting utilities for clean, frontend-friendly output.
-"""
-
 import re
 from typing import Dict, List, Any
 from datetime import datetime

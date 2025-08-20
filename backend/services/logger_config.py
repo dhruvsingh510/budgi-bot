@@ -1,10 +1,3 @@
-#!/usr/bin/env python3
-"""
-Centralized logging configuration for Personal Finance Bot services.
-
-This module sets up file-based logging with IST timestamps for all services.
-"""
-
 import logging
 import logging.handlers
 import os
@@ -97,7 +90,7 @@ class ServiceLogger:
         
         return logger
 
-# Global logger instance
+
 service_logger = ServiceLogger()
 
 def get_service_logger(service_name: str) -> logging.Logger:

@@ -1,4 +1,3 @@
-# Resource management with proper separation of concerns
 import os
 from pathlib import Path
 from langchain.text_splitter import RecursiveCharacterTextSplitter

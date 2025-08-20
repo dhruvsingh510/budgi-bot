@@ -1,4 +1,3 @@
-# Clean transaction service with dependency injection
 import os
 import re
 import json
@@ -42,7 +41,6 @@ class TransactionParse(BaseModel):
 class TransactionService:
     """Transaction service with dependency injection."""
 
-    # Constants
     CATEGORIES = [
         "Income",
         "Housing & Utilities",
@@ -61,7 +59,6 @@ class TransactionService:
         "Miscellaneous",
     ]
 
-    # Timezone: IST (UTC+05:30)
     IST = timezone(timedelta(hours=5, minutes=30))
 
     def __init__(
@@ -78,10 +75,8 @@ class TransactionService:
         self.vector_store = vector_store
         self.memory_path = memory_path
 
-        # Load transactions from memory
+        # Initialize transactions from memory
         self.transactions = self._load_transactions()
-
-        # State for handling follow-up interactions
         self.pending_add_context = None
         self.last_state_snapshot = None
 
@@ -115,15 +110,12 @@ class TransactionService:
             return
 
         try:
-            # Get the faiss store path from resource manager pattern
             faiss_path = os.path.join(
                 os.path.dirname(self.memory_path), "faiss_store_transaction"
             )
 
-            # Create directory if it doesn't exist
             os.makedirs(faiss_path, exist_ok=True)
 
-            # Save the vector store
             self.vector_store.save_local(faiss_path)
             self.logger.info(f"✅ Saved vector store to {faiss_path}")
 
@@ -131,15 +123,11 @@ class TransactionService:
             self.logger.error(f"❌ Failed to save vector store: {str(e)}")
 
     def _verify_document_in_vector_store(self, item_name: str, doc_id: str) -> bool:
-        """
-        Verify that a document with the given item_name and doc_id exists in the vector store.
-        Returns True if found, False otherwise.
-        """
+        """Verify that a document with the given item_name and doc_id exists in the vector store."""
         if not self.vector_store:
             return False
 
         try:
-            # Search for the exact document we want to verify
             similar_docs = self.vector_store.similarity_search(item_name, k=10)
 
             # Loop through retrieved documents to verify our document is present
@@ -172,7 +160,6 @@ class TransactionService:
     ) -> Dict:
         """Add a new transaction to the transaction database."""
 
-        # Create a persistent id for the vector store and transaction
         doc_id = str(uuid4())
 
         transaction = {
@@ -184,11 +171,9 @@ class TransactionService:
             "doc_id": doc_id,
         }
 
-        # Update in-memory store
         self.transactions.append(transaction)
         self._save_transactions(self.transactions)
 
-        # Add to vector store if available
         if self.vector_store and item_name:
             doc = Document(
                 page_content=item_name,
@@ -199,12 +184,9 @@ class TransactionService:
                     "source": "user",
                 },
             )
+            # Add transaction to vector store and save locally
             self.vector_store.add_documents([doc])
-
-            # Save the updated vector store to disk
             self._save_vector_store()
-
-            # Verify the document was actually added to the vector store
             self._verify_document_in_vector_store(item_name, doc_id)
 
         return {
@@ -222,7 +204,6 @@ class TransactionService:
     ) -> Dict:
         """Edit an existing transaction based on best match."""
 
-        # Find best matching transaction
         candidates = self._find_similar_transactions(
             input_text, amount, category, item_name
         )
@@ -244,7 +225,6 @@ class TransactionService:
         if item_name is not None:
             best_match["item_name"] = item_name
 
-        # Save updated transactions
         self._save_transactions(self.transactions)
         self._save_vector_store()
 
@@ -263,7 +243,6 @@ class TransactionService:
     ) -> Dict:
         """Delete an existing transaction based on best match."""
 
-        # Find best matching transaction
         candidates = self._find_similar_transactions(
             input_text, amount, category, item_name
         )
@@ -308,7 +287,7 @@ class TransactionService:
             # Get a large number of documents to see everything in the store
             all_docs = self.vector_store.similarity_search(
                 "", k=100
-            )  # Empty query to get all
+            )
 
             self.logger.info(
                 f"🔍 Vector Store Contents - Total documents: {len(all_docs)}"
@@ -362,14 +341,8 @@ class TransactionService:
 
             results = []
 
-            # Debug: Log all available transaction doc_ids
-            memory_doc_ids = [
-                t.get("doc_id") for t in self.transactions if t.get("doc_id")
-            ]
-            self.logger.info(f"Available transaction doc_ids in memory: {memory_doc_ids}")
-
             for doc in similar_docs:
-                # # Skip training data if present (for unfiltered search)
+                # Skip training data if present (for unfiltered search)
                 if doc.metadata.get("source") == "training_data":
                     self.logger.info(f"🚫 Skipping training data document: {doc.page_content}, metadata: {doc.metadata}")
                     continue
@@ -468,7 +441,7 @@ class TransactionService:
     ) -> float:
         """Score how well a candidate transaction matches the criteria."""
 
-        # Text similarity (item_name and input)
+        # Item name similarity
         text_score = 0.0
         if desired_item and candidate.get("item_name"):
             text_score = max(
@@ -591,7 +564,6 @@ class TransactionService:
                 user_input=state.input,
             )
 
-            # Parse with LLM
             parser = PydanticOutputParser(pydantic_object=TransactionParse)
 
             try:
@@ -698,7 +670,7 @@ class TransactionService:
         self.transaction_graph.add_node("get_all_by_category", get_all_by_category_node)
         self.transaction_graph.add_node(
             "followup", lambda state: state
-        )  # No-op for followup
+        )
 
         # Add edges
         self.transaction_graph.set_entry_point("llm_parse")
@@ -787,11 +759,10 @@ class TransactionService:
         if self.pending_add_context:
             return self._handle_followup(user_input)
 
-        # Normal flow
         state = TransactionState(input=user_input)
         final_state = self.compiled_graph.invoke(state)
 
-        # Cache last state for robustness
+        # Cache last state
         self.last_state_snapshot = final_state
 
         # If follow-up needed, save context and prompt user

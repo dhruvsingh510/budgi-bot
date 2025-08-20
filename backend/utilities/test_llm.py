@@ -1,7 +1,3 @@
-#!/usr/bin/env python3
-"""
-Quick test script to verify LLM API is working
-"""
 import os
 from dotenv import load_dotenv
 from langchain_groq import ChatGroq
@@ -11,10 +7,8 @@ from langchain_core.messages import HumanMessage
 def test_llm_connection():
     """Test if LLM API is working properly."""
 
-    # Load environment variables
     load_dotenv()
 
-    # Check if required environment variables exist
     groq_api_key = os.environ.get("GROQ_API_KEY")
     model_name = os.environ.get("LITELLM_MODEL")
 
@@ -27,7 +21,6 @@ def test_llm_connection():
         return False
 
     try:
-        # Initialize LLM
         print("\n🚀 Initializing LLM...")
         llm = ChatGroq(
             model_name=model_name,
@@ -35,7 +28,6 @@ def test_llm_connection():
         )
         print("✅ LLM initialized successfully")
 
-        # Test simple API call
         print("\n💬 Testing API call...")
         test_message = "Hello! Can you respond with 'API is working'?"
         response = llm.invoke([HumanMessage(content=test_message)])
@@ -45,7 +37,6 @@ def test_llm_connection():
         print(f"📥 Received: {response.content}")
         print("✅ LLM API call successful!")
 
-        # Test JSON parsing capability
         print("\n🧮 Testing JSON parsing...")
         json_prompt = """
         Respond with valid JSON only:
@@ -58,7 +49,6 @@ def test_llm_connection():
         json_response = llm.invoke([HumanMessage(content=json_prompt)])
         print(f"📥 JSON Response: {json_response.content}")
 
-        # Try to parse as JSON
         import json
 
         try:
@@ -85,7 +75,6 @@ if __name__ == "__main__":
     print("🧪 LLM API Connection Test")
     print("=" * 50)
 
-    # Test direct connection
     direct_test = test_llm_connection()
 
     print("\n📊 Test Results:")
