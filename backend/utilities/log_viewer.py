@@ -1,10 +1,3 @@
-#!/usr/bin/env python3
-"""
-Log viewer utility for Personal Finance Bot.
-
-Provides convenient functions to view and filter logs.
-"""
-
 import os
 from pathlib import Path
 from datetime import datetime, timedelta
