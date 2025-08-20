@@ -1,4 +1,3 @@
-# Clean budget service with dependency injection
 import os
 import re
 import json
@@ -136,7 +135,7 @@ class BudgetService:
         self.vector_store = vector_store
         self.memory_path = memory_path
 
-        # Initialize logger first before any method that uses it
+        # Initialize logger first
         self.logger = get_service_logger("budget")
 
         # Load context from memory

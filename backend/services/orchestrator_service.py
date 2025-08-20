@@ -1,4 +1,3 @@
-# Intelligent orchestrator with LangGraph routing
 from resource_manager import resource_manager
 from budget_service import BudgetService
 from transaction_service import TransactionService
@@ -200,7 +199,6 @@ class BudgetBot:
 
             user_input = state["user_input"].lower()
 
-            # Use LLM to generate contextual response for general queries
             general_prompt = f"""
               You are a helpful Personal Finance Bot. The user has sent a general greeting or capability inquiry: "{state['user_input']}"
 
@@ -370,7 +368,7 @@ def main():
                     print("Please enter a valid input or 'exit' to quit.")
                     continue
 
-                # Process with intelligent routing (no manual parsing needed!)
+                # Process with intelligent routing
                 response = bot.process_request(user_input)
                 print(f"\n🤖 Bot: {response}")
 
