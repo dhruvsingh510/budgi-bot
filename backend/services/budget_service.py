@@ -299,9 +299,8 @@ class BudgetService:
         You are a budgeting assistant with persistent episodic memory saved on disk.
         - Only call a tool if strictly necessary to read/change state (profile, goals, plan) or to compute/propose/adjust.
         - After a successful tool call, reply to the user in natural language and DO NOT call any more tools in this turn.
-        - Prefer using list_goals_tool and show_profile_tool when the user asks to view saved state.
 
-        You can not advice any strategies or recommendations for budgeting or reaching target.
+        IMP : You can not advice any strategies or recommendations for budgeting or reaching target.
         You should keep your responses short, meaningful, and also professional.
         Try to use simple language that is easily understandable, and not wordy.
 
@@ -309,6 +308,9 @@ class BudgetService:
         When setting profiles, users provide annual income which is automatically converted to monthly income for budget calculations.
 
         DO NOT REVEAL EXTRA INFORMATION OF YOURSELF SO PEOPLE CAN TELL THAT YOU ARE A BOT.
+        DO NOT RECOMMEND ANY NEXT STEPS, OR GIVE RESPONSES THAT REQUIRE MORE USER INPUT.
+        KEEP MESSAGES SHORT AND CONCISE. DON'T GIVE VERY LONG RESPONSES.
+        DO NOT GIVE ANY INFORMATION RELATED TO THE CALCULATION OF THE ALLOCATIONS.
         """
 
     def process_request(
@@ -548,10 +550,12 @@ class BudgetService:
             except Exception:
                 pass
             ai = model.invoke(messages_to_model)
-            return {
+            final_state = {
                 "messages": state["messages"] + [ai],
                 "tool_calls_made": state.get("tool_calls_made", 0),
             }
+            self.logger.info(f"Budget Model Node State: {final_state}")
+            return final_state
 
         # Prebuild a tool runner instance
         _tools_runner = ToolNode(self.tools)
@@ -559,10 +563,12 @@ class BudgetService:
         # Tools node that executes tools and increments the counter
         def tools_node(state: MsgState) -> MsgState:
             result = _tools_runner.invoke(state)
-            return {
+            final_state = {
                 "messages": result["messages"],
                 "tool_calls_made": state.get("tool_calls_made", 0) + 1,
             }
+            self.logger.info(f"Budget Tools Node State: {final_state}")
+            return final_state
 
         # Routing: if the last AI message has tool calls, go to tools; else end
         def route_tools(state: MsgState):

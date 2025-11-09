@@ -161,8 +161,6 @@ def main():
                 unsafe_allow_html=True,
             )
 
-    st.markdown("</div>", unsafe_allow_html=True)
-
     # Input area
     col1, col2 = st.columns([4, 1])
 
@@ -170,7 +168,7 @@ def main():
         user_input = st.text_input(
             "Type your message here...",
             key=f"user_input_{st.session_state.input_key}",
-            placeholder="Ask naturally: 'Set my budget profile' or 'Add coffee ₹5'...",
+            placeholder="Ask naturally: 'Set my budget profile' or 'Add coffee ₹50'...",
             label_visibility="collapsed",
         )
 
