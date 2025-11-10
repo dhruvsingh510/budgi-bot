@@ -1,6 +1,7 @@
 from resource_manager import resource_manager
 from budget_service import BudgetService
 from transaction_service import TransactionService
+from guardrail_service import GuardrailService
 import os
 from pathlib import Path
 from typing import Dict, Any, Tuple
@@ -60,6 +61,17 @@ class BudgetBot:
             embeddings=resource_manager.embeddings,
             vector_store=resource_manager.get_transaction_vector_store(),
             memory_path=self._get_transaction_memory_path(),
+        )
+
+        # Initialize guardrail
+        guard_config = os.path.abspath(
+            os.path.join(
+                Path(__file__).parent, "..", "guardrails", "finance_guard.yaml"
+            )
+        )
+        self.guardrail_service = GuardrailService(
+            llm=self.llm,
+            config_path=guard_config,
         )
 
         # Store last routing state for API access
@@ -320,6 +332,20 @@ class BudgetBot:
             response = final_state.get(
                 "response", "Sorry, I couldn't process your request."
             )
+
+            guard_decision = self.guardrail_service.evaluate(user_input, response)
+            self.last_routing_state["guardrail"] = {
+                "allowed": guard_decision.allowed,
+                "reason": guard_decision.reason,
+            }
+
+            if not guard_decision.allowed:
+                self.logger.warning(
+                    "Guardrail blocked response for input '%s': %s",
+                    user_input,
+                    guard_decision.reason,
+                )
+                return self.guardrail_service.fallback_response
 
             self.logger.info(f"Generated response length: {len(response)} characters")
 

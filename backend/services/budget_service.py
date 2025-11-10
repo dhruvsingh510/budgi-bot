@@ -1,10 +1,12 @@
 import os
 import re
 import json
+from pathlib import Path
 from dataclasses import dataclass
 from typing import Optional, List, Dict, Any, Tuple
 from datetime import datetime, timezone, timedelta
 from logger_config import get_service_logger
+from guardrail_service import GuardrailService
 from langgraph.graph import StateGraph, START, END
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 from langchain_core.tools import tool
@@ -35,8 +37,23 @@ class BudgetService:
     """Budget service with dependency injection."""
 
     # Constants
+    ADVICE_KEYWORDS = (
+        "would you like",
+        "tips on",
+        "provide tips",
+        "consider",
+        "you should",
+        "try to",
+        "recommend",
+        "suggest",
+        "ways to reduce",
+        "increase your savings",
+        "explore ways",
+        "discuss how",
+        "help you achieve",
+    )
+
     CATEGORIES = [
-        "Income",
         "Housing & Utilities",
         "Food & Groceries",
         "Transportation",
@@ -55,7 +72,6 @@ class BudgetService:
 
     GUIDE_DEFAULTS = {
         "high": {
-            "Income": (0, 0),
             "Housing & Utilities": (35, 35),
             "Food & Groceries": (10, 10),
             "Transportation": (7, 7),
@@ -72,7 +88,6 @@ class BudgetService:
             "Miscellaneous": (1, 1),
         },
         "medium": {
-            "Income": (0, 0),
             "Housing & Utilities": (30, 30),
             "Food & Groceries": (12, 12),
             "Transportation": (9, 9),
@@ -89,7 +104,6 @@ class BudgetService:
             "Miscellaneous": (1, 1),
         },
         "low": {
-            "Income": (0, 0),
             "Housing & Utilities": (25, 25),
             "Food & Groceries": (12, 12),
             "Transportation": (7, 7),
@@ -137,6 +151,20 @@ class BudgetService:
 
         # Initialize logger first
         self.logger = get_service_logger("budget")
+        self.response_guard = GuardrailService(
+            llm=self.llm,
+            config_path=os.path.abspath(
+                os.path.join(
+                    Path(__file__).parent,
+                    "..",
+                    "guardrails",
+                    "budget_response_guard.yaml",
+                )
+            ),
+            config_section_key="budget_response_guard",
+            logger=get_service_logger("budget_guard"),
+        )
+        self.last_guard_state: Dict[str, Any] = {}
 
         # Load context from memory
         self.context = self._load_memory()
@@ -328,6 +356,73 @@ class BudgetService:
         )
         ai_msgs = [m for m in final["messages"] if isinstance(m, AIMessage)]
         text = ai_msgs[-1].content if ai_msgs else "Done."
+
+        stripped_text = text.strip()
+        CLEAR_CONFIRMATIONS = {
+            "Cleared all goals and the current plan.",
+            "Cleared current budget plan.",
+            "Cleared profile, and plan.",
+        }
+        if stripped_text in CLEAR_CONFIRMATIONS:
+            self.logger.info(
+                "Bypassing guard for clear operation response: %s", stripped_text
+            )
+            self.last_guard_state = {"allowed": True, "reason": "clear_operation"}
+            return stripped_text, final
+
+        guard_decision = self.response_guard.evaluate(user_input, text)
+        self.last_guard_state = {
+            "allowed": guard_decision.allowed,
+            "reason": guard_decision.reason,
+        }
+        needs_rewrite = False
+        if not guard_decision.allowed:
+            needs_rewrite = True
+            self.logger.warning(
+                "Budget response guard blocked output. reason=%s",
+                guard_decision.reason,
+            )
+        elif self._contains_advice(text):
+            needs_rewrite = True
+            self.logger.info(
+                "Budget response contained advisory language; triggering rewrite."
+            )
+
+        if needs_rewrite:
+            plan_summary = None
+            plan = self.context.get("plan")
+            if plan:
+                plan_summary = self.render_plan(plan)
+
+            profile_summary = None
+            profile = self.context.get("profile")
+            if profile:
+                profile_summary = self._render_profile_summary(profile)
+
+            rewritten = self._rewrite_without_advice(user_input, text)
+            if rewritten and not self._contains_advice(rewritten):
+                self.logger.info("Budget response guard produced rewritten response.")
+                sections = [rewritten.strip()] if rewritten.strip() else []
+                if profile_summary:
+                    sections.append(profile_summary)
+                if plan_summary and plan_summary not in sections:
+                    sections.append(plan_summary)
+                text = "\n\n".join(sections)
+            elif plan_summary:
+                self.logger.info(
+                    "Budget response guard falling back to rendered plan summary."
+                )
+                sections = []
+                if profile_summary:
+                    sections.append(profile_summary)
+                sections.append(plan_summary)
+                text = "\n\n".join(sections)
+            else:
+                self.logger.warning(
+                    "Budget response guard rewrite failed; using fallback response."
+                )
+                text = self.response_guard.fallback_response
+
         return text, final
 
     def get_context(self) -> Dict[str, Any]:
@@ -522,9 +617,7 @@ class BudgetService:
                         f"  • {g.name}: target {g.target_amount} in {g.months} months (priority {g.priority})"
                     )
             if plan:
-                parts.append(
-                    "- A budget plan exists for the current profile/goals. Use show_plan_tool to display it."
-                )
+                parts.append("- A budget plan exists for the current profile/goals.")
             if not p and not goals and not plan:
                 parts.append("- No saved profile, goals, or plan.")
             parts.append("Use this memory as context when reasoning and responding.")
@@ -587,3 +680,59 @@ class BudgetService:
         tool_graph.add_conditional_edges("model", route_tools)
         tool_graph.add_edge("tools", "model")
         self.tool_app = tool_graph.compile()
+
+    def _rewrite_without_advice(
+        self, user_input: str, assistant_output: str
+    ) -> Optional[str]:
+        """Rewrite assistant output to remove advice while keeping factual info."""
+        system_prompt = (
+            "You rewrite budget assistant responses so they stay factual, concise, and "
+            "avoid offering advice, suggestions, or calls to action. Return only the rewritten response."
+        )
+        human_prompt = f"""
+User request:
+{user_input}
+
+Original budget response:
+{assistant_output}
+
+Rewrite the response so that it:
+- Summarizes the user's budget/profile/plan facts that were provided.
+- Does NOT include advice, suggestions, tips, or instructions.
+- Keeps the tone professional and concise.
+- Does NOT ask follow-up questions or offer next steps.
+
+Provide the rewritten response as plain text.
+"""
+        try:
+            rewritten = self.llm.invoke(
+                [
+                    SystemMessage(content=system_prompt),
+                    HumanMessage(content=human_prompt.strip()),
+                ]
+            )
+            return (
+                rewritten.content.strip() if rewritten and rewritten.content else None
+            )
+        except Exception as exc:
+            self.logger.error(
+                "Failed to rewrite budget response without advice: %s",
+                exc,
+                exc_info=True,
+            )
+            return None
+
+    @classmethod
+    def _contains_advice(cls, text: str) -> bool:
+        lowered = (text or "").lower()
+        return any(keyword in lowered for keyword in cls.ADVICE_KEYWORDS)
+
+    @staticmethod
+    def _render_profile_summary(profile: BudgetProfile) -> str:
+        return (
+            "Current Profile:\n"
+            f"- Annual Income: ₹{profile.net_income * 12:,.0f}\n"
+            f"- Monthly Income: ₹{profile.net_income:,.2f}\n"
+            f"- Cost of Living: {profile.cost_of_living.title()}\n"
+            f"- Household Size: {profile.household_size}"
+        )

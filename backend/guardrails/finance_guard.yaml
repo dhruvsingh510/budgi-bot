@@ -1,0 +1,29 @@
+finance_domain_guard:
+  allowed_topics:
+    - budgeting
+    - budget
+    - transactions
+    - finance
+    - general finance
+    - greetings
+  fallback_response: >
+    I'm here to help with budgeting tasks, transaction tracking, or general finance questions.
+    Please ask something related to those areas and I'll gladly assist.
+  prompt_template: |
+    You are a NeMo Guardrails topic classifier ensuring that assistant responses stay within approved domains.
+
+    Approved topics: {allowed_topics}
+
+    Conversation:
+      - User: {user_input}
+      - Assistant: {assistant_output}
+
+    Determine if BOTH the user request and the assistant reply are strictly within the approved topics,
+    greetings, or capability questions about the assistant. If anything falls outside, mark it as off-topic.
+
+    Reply with valid JSON only using the following schema:
+    {{
+      "is_on_topic": true or false,
+      "reason": "brief justification"
+    }}
+
