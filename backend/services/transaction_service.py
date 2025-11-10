@@ -85,6 +85,12 @@ class TransactionService:
         self.logger = get_service_logger("transaction")
         self.logger.info("Transaction service initialized")
 
+        if self.vector_store is None and self.embeddings is not None:
+            self.logger.info(
+                "No transaction vector store supplied. Rebuilding index from memory."
+            )
+            self._reindex_vector_store()
+
     def _load_transactions(self) -> List[Dict]:
         """Load transactions from persistent storage."""
         try:
@@ -122,34 +128,6 @@ class TransactionService:
         except Exception as e:
             self.logger.error(f"❌ Failed to save vector store: {str(e)}")
 
-    def _verify_document_in_vector_store(self, item_name: str, doc_id: str) -> bool:
-        """Verify that a document with the given item_name and doc_id exists in the vector store."""
-        if not self.vector_store:
-            return False
-
-        try:
-            similar_docs = self.vector_store.similarity_search(item_name, k=10)
-
-            # Loop through retrieved documents to verify our document is present
-            for retrieved_doc in similar_docs:
-                if (
-                    retrieved_doc.page_content == item_name
-                    and retrieved_doc.metadata.get("doc_id") == doc_id
-                ):
-                    self.logger.info(
-                        f"Successfully verified document in vector store: {item_name} with doc_id: {doc_id}"
-                    )
-                    return True
-
-            self.logger.warning(
-                f"Document verification failed for: {item_name} with doc_id: {doc_id}"
-            )
-            return False
-
-        except Exception as e:
-            self.logger.error(f"Error during document verification: {str(e)}")
-            return False
-
     # Transaction operations
     def add_transaction(
         self,
@@ -174,20 +152,7 @@ class TransactionService:
         self.transactions.append(transaction)
         self._save_transactions(self.transactions)
 
-        if self.vector_store and item_name:
-            doc = Document(
-                page_content=item_name,
-                metadata={
-                    "category": category or "Miscellaneous",
-                    "amount": amount or 0.0,
-                    "doc_id": doc_id,
-                    "source": "user",
-                },
-            )
-            # Add transaction to vector store and save locally
-            self.vector_store.add_documents([doc])
-            self._save_vector_store()
-            self._verify_document_in_vector_store(item_name, doc_id)
+        self._upsert_transaction_in_vector_store(transaction)
 
         return {
             "status": "success",
@@ -226,7 +191,7 @@ class TransactionService:
             best_match["item_name"] = item_name
 
         self._save_transactions(self.transactions)
-        self._save_vector_store()
+        self._reindex_vector_store()
 
         return {
             "status": "success",
@@ -261,7 +226,7 @@ class TransactionService:
             t for t in self.transactions if t.get("doc_id") != best_match.get("doc_id")
         ]
         self._save_transactions(self.transactions)
-        self._save_vector_store()
+        self._reindex_vector_store()
 
         return {
             "status": "success",
@@ -285,9 +250,7 @@ class TransactionService:
 
         try:
             # Get a large number of documents to see everything in the store
-            all_docs = self.vector_store.similarity_search(
-                "", k=100
-            )
+            all_docs = self.vector_store.similarity_search("", k=100)
 
             self.logger.info(
                 f"🔍 Vector Store Contents - Total documents: {len(all_docs)}"
@@ -328,27 +291,41 @@ class TransactionService:
             # First try to search with user filter
             similar_docs = []
             try:
-                similar_docs = self.vector_store.similarity_search(input_text, k=k, filter={"source": "user"})
-                self.logger.info(f"Found {len(similar_docs)} similar user documents in vector store")
+                similar_docs = self.vector_store.similarity_search(
+                    input_text, k=k, filter={"source": "user"}
+                )
+                self.logger.info(
+                    f"Found {len(similar_docs)} similar user documents in vector store"
+                )
             except Exception as filter_error:
-                self.logger.warning(f"Filtered search failed: {str(filter_error)}, trying unfiltered search")
+                self.logger.warning(
+                    f"Filtered search failed: {str(filter_error)}, trying unfiltered search"
+                )
 
             # If no results with filter, try without filter (for backward compatibility)
             if not similar_docs:
-                self.logger.info("No results with user filter, trying unfiltered search")
+                self.logger.info(
+                    "No results with user filter, trying unfiltered search"
+                )
                 similar_docs = self.vector_store.similarity_search(input_text, k=k)
-                self.logger.info(f"Found {len(similar_docs)} similar documents in unfiltered search")
+                self.logger.info(
+                    f"Found {len(similar_docs)} similar documents in unfiltered search"
+                )
 
             results = []
 
             for doc in similar_docs:
                 # Skip training data if present (for unfiltered search)
                 if doc.metadata.get("source") == "training_data":
-                    self.logger.info(f"🚫 Skipping training data document: {doc.page_content}, metadata: {doc.metadata}")
+                    self.logger.info(
+                        f"🚫 Skipping training data document: {doc.page_content}, metadata: {doc.metadata}"
+                    )
                     continue
 
                 doc_id = doc.metadata.get("doc_id")
-                self.logger.info(f"Processing vector doc: content='{doc.page_content}', doc_id='{doc_id}', metadata={doc.metadata}")
+                self.logger.info(
+                    f"Processing vector doc: content='{doc.page_content}', doc_id='{doc_id}', metadata={doc.metadata}"
+                )
 
                 if doc_id:
                     # Find matching transaction in memory
@@ -358,9 +335,13 @@ class TransactionService:
                     )
                     if matching_transaction:
                         results.append(matching_transaction)
-                        self.logger.info(f"✅ Successfully matched: {matching_transaction.get('item_name')} with doc_id: {doc_id}")
+                        self.logger.info(
+                            f"✅ Successfully matched: {matching_transaction.get('item_name')} with doc_id: {doc_id}"
+                        )
                     else:
-                        self.logger.warning(f"❌ No matching transaction found for doc_id: {doc_id}")
+                        self.logger.warning(
+                            f"❌ No matching transaction found for doc_id: {doc_id}"
+                        )
                         # Try to find by item name as fallback
                         fallback_match = next(
                             (
@@ -371,12 +352,18 @@ class TransactionService:
                             None,
                         )
                         if fallback_match:
-                            self.logger.info(f"🔄 Found fallback match by item_name: {fallback_match.get('item_name')}")
+                            self.logger.info(
+                                f"🔄 Found fallback match by item_name: {fallback_match.get('item_name')}"
+                            )
                             results.append(fallback_match)
                         else:
-                            self.logger.warning(f"🚫 No fallback match found for item_name: {doc.page_content}")
+                            self.logger.warning(
+                                f"🚫 No fallback match found for item_name: {doc.page_content}"
+                            )
                 else:
-                    self.logger.warning(f"Document missing doc_id in metadata: {doc.page_content}")
+                    self.logger.warning(
+                        f"Document missing doc_id in metadata: {doc.page_content}"
+                    )
 
                 # Stop when we have enough results
                 if len(results) >= k:
@@ -418,6 +405,14 @@ class TransactionService:
         item_name: Optional[str] = None,
     ) -> List[Dict]:
         """Find transactions similar to the given criteria."""
+
+        if self.vector_store:
+            query_text = self._compose_query_text(
+                input_text, amount=amount, category=category, item_name=item_name
+            )
+            vector_matches = self._vector_search_transactions(query_text, k=5)
+            if vector_matches:
+                return vector_matches
 
         candidates = []
         for transaction in self.transactions:
@@ -509,6 +504,151 @@ class TransactionService:
         diff = abs(target - candidate)
         max_val = max(abs(target), abs(candidate))
         return max(0.0, 1.0 - diff / max_val)
+
+    def _compose_query_text(
+        self,
+        input_text: str,
+        amount: Optional[float] = None,
+        category: Optional[str] = None,
+        item_name: Optional[str] = None,
+    ) -> str:
+        parts = [input_text.strip()]
+        if item_name:
+            parts.append(f"item: {item_name}")
+        if category:
+            parts.append(f"category: {category}")
+        if amount is not None:
+            parts.append(f"amount: {amount}")
+        return " | ".join(filter(None, parts))
+
+    @staticmethod
+    def _compose_transaction_text(transaction: Dict[str, Any]) -> str:
+        return " | ".join(
+            filter(
+                None,
+                [
+                    transaction.get("input"),
+                    transaction.get("item_name"),
+                    transaction.get("category"),
+                    TransactionFormatter.format_amount(transaction.get("amount")),
+                    transaction.get("datetime"),
+                ],
+            )
+        )
+
+    def _build_transaction_documents(
+        self, transaction: Dict[str, Any]
+    ) -> List[Document]:
+        if not transaction:
+            return []
+
+        base_text = self._compose_transaction_text(transaction)
+        chunks = (
+            self.text_splitter.split_text(base_text)
+            if self.text_splitter
+            else [base_text]
+        )
+        if not chunks:
+            chunks = [base_text]
+
+        documents: List[Document] = []
+        for idx, chunk in enumerate(chunks):
+            metadata = {
+                "doc_id": transaction.get("doc_id"),
+                "chunk_index": idx,
+                "source": transaction.get("source", "user"),
+                "category": transaction.get("category", "Miscellaneous"),
+                "amount": transaction.get("amount") or 0.0,
+                "item_name": transaction.get("item_name"),
+                "datetime": transaction.get("datetime"),
+            }
+            documents.append(Document(page_content=chunk, metadata=metadata))
+        return documents
+
+    def _vector_search_transactions(self, query_text: str, k: int = 5) -> List[Dict]:
+        if not self.vector_store:
+            return []
+
+        try:
+            docs = self.vector_store.similarity_search(query_text, k=k)
+        except Exception as exc:
+            self.logger.error(
+                "Vector search failed for query '%s': %s", query_text, exc
+            )
+            return []
+
+        matches: List[Dict[str, Any]] = []
+        seen_ids = set()
+        for doc in docs:
+            doc_id = doc.metadata.get("doc_id")
+            if not doc_id or doc_id in seen_ids:
+                continue
+            match = next(
+                (txn for txn in self.transactions if txn.get("doc_id") == doc_id),
+                None,
+            )
+            if match:
+                matches.append(match)
+                seen_ids.add(doc_id)
+            if len(matches) >= k:
+                break
+        return matches
+
+    def _upsert_transaction_in_vector_store(self, transaction: Dict[str, Any]) -> None:
+        if not self.embeddings or not transaction:
+            return
+
+        documents = self._build_transaction_documents(transaction)
+        if not documents:
+            return
+
+        if self.vector_store is None:
+            self.vector_store = FAISS.from_documents(documents, self.embeddings)
+        else:
+            self.vector_store.add_documents(documents)
+
+        self._save_vector_store()
+
+    def _reindex_vector_store(self) -> None:
+        if not self.embeddings:
+            return
+
+        documents: List[Document] = []
+        for txn in self.transactions:
+            documents.extend(self._build_transaction_documents(txn))
+
+        if not documents:
+            self.vector_store = None
+            return
+
+        self.vector_store = FAISS.from_documents(documents, self.embeddings)
+        self._save_vector_store()
+
+    @staticmethod
+    def build_documents_for_seed(
+        transactions: List[Dict[str, Any]],
+        text_splitter: RecursiveCharacterTextSplitter,
+    ) -> List[Document]:
+        documents: List[Document] = []
+        for txn in transactions:
+            base_text = TransactionService._compose_transaction_text(txn)
+            chunks = (
+                text_splitter.split_text(base_text) if text_splitter else [base_text]
+            )
+            if not chunks:
+                chunks = [base_text]
+            for idx, chunk in enumerate(chunks):
+                metadata = {
+                    "doc_id": txn.get("doc_id", str(uuid4())),
+                    "chunk_index": idx,
+                    "source": txn.get("source", "training_data"),
+                    "category": txn.get("category", "Miscellaneous"),
+                    "amount": txn.get("amount") or 0.0,
+                    "item_name": txn.get("item_name"),
+                    "datetime": txn.get("datetime"),
+                }
+                documents.append(Document(page_content=chunk, metadata=metadata))
+        return documents
 
     def _setup_workflow(self):
         """Setup the LangGraph workflow for transaction processing."""
@@ -668,9 +808,7 @@ class TransactionService:
         self.transaction_graph.add_node("search_by_category", search_node_by_category)
         self.transaction_graph.add_node("get_recent", get_recent_node)
         self.transaction_graph.add_node("get_all_by_category", get_all_by_category_node)
-        self.transaction_graph.add_node(
-            "followup", lambda state: state
-        )
+        self.transaction_graph.add_node("followup", lambda state: state)
 
         # Add edges
         self.transaction_graph.set_entry_point("llm_parse")

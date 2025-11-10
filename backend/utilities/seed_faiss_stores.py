@@ -1,11 +1,19 @@
-from codecs import ignore_errors
 import os
 import shutil
 from uuid import uuid4
+from pathlib import Path
+import sys
 from langchain.vectorstores import FAISS
 from langchain.docstore.document import Document
 from langchain.embeddings import HuggingFaceEmbeddings
 from langchain.text_splitter import RecursiveCharacterTextSplitter
+
+CURRENT_DIR = Path(__file__).resolve().parent
+SERVICES_DIR = CURRENT_DIR.parent / "services"
+if str(SERVICES_DIR) not in sys.path:
+    sys.path.insert(0, str(SERVICES_DIR))
+
+from transaction_service import TransactionService  # type: ignore # noqa: E402
 
 
 TRANSACTION_FAISS_PATH = "../data/faiss_store_transaction"
@@ -220,6 +228,8 @@ for g in budget_guideline_texts:
         )
     )
 
+split_budget_docs = text_splitter.split_documents(budget_docs)
+
 
 if os.path.exists(f"{BUDGET_FAISS_PATH}/index.faiss"):
     db_guidelines = FAISS.load_local(
@@ -229,7 +239,8 @@ if os.path.exists(f"{BUDGET_FAISS_PATH}/index.faiss"):
     )
     print("🔔 Loaded existing budget guidelines FAISS")
 else:
-    db_guidelines = FAISS.from_documents(budget_docs, embedding_model)
+    docs_to_index = split_budget_docs if split_budget_docs else budget_docs
+    db_guidelines = FAISS.from_documents(docs_to_index, embedding_model)
     db_guidelines.save_local(f"{BUDGET_FAISS_PATH}")
     print("✅ Created and saved budget guidelines FAISS")
 
@@ -251,24 +262,24 @@ if os.path.exists(TRANSACTION_FAISS_PATH):
 else:
     print("ℹ️  Transaction FAISS stores directory doesn't exist, nothing to delete")
 
-docs = []
+seed_transactions = []
 for example in transaction_examples:
-    docs.append(
-        Document(
-            page_content=example["input"],
-            metadata={
-                "doc_id": str(uuid4()),
-                "input": example["input"],
-                "amount": example["amount"],
-                "item_name": example["item_name"],
-                "category": example["category"],
-                "action": "add",
-                "source": "training_data",
-            },
-        )
+    seed_transactions.append(
+        {
+            "doc_id": str(uuid4()),
+            "input": example["input"],
+            "amount": example["amount"],
+            "item_name": example["item_name"],
+            "category": example["category"],
+            "action": "add",
+            "source": "training_data",
+            "datetime": "",
+        }
     )
 
-split_docs = text_splitter.split_documents(docs)
+transaction_docs = TransactionService.build_documents_for_seed(
+    seed_transactions, text_splitter
+)
 
 
 if os.path.exists(f"{TRANSACTION_FAISS_PATH}/index.faiss"):
@@ -279,13 +290,13 @@ if os.path.exists(f"{TRANSACTION_FAISS_PATH}/index.faiss"):
     )
     print("🔔 Loaded existing transactions FAISS")
 else:
-    db = FAISS.from_documents(docs, embedding_model)
+    if not transaction_docs:
+        raise RuntimeError("No seed transaction documents generated for FAISS.")
+    db = FAISS.from_documents(transaction_docs, embedding_model)
     db.save_local(f"{TRANSACTION_FAISS_PATH}")
     print("✅ Created and saved transactions FAISS")
 
-print(
-    f"Number of guideline vectors in Transaction FAISS: {len(db_guidelines.index_to_docstore_id)}"
-)
+print(f"Number of vectors in Transaction FAISS: {len(db.index_to_docstore_id)}")
 size_bytes = get_folder_size(f"{TRANSACTION_FAISS_PATH}")
 size_mb = size_bytes / (1024 * 1024)
 print(f"Guidelines Transaction FAISS size on disk: {size_mb:.2f} MB")
